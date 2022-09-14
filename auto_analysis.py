@@ -280,7 +280,7 @@ class Component(WorkItem):
 				if attrib not in Component.dict_mapping.keys():
 					raise ValueError(f"The SW_component.csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {Component.expected_attributes}")
 				else:
-					exec(f"self.{Component.expected_attributes[attrib]} = row[{self.dict_mapping[attrib]}]")
+					exec(f"self.{Component.expected_attributes[attrib]} = row[{Component.dict_mapping[attrib]}]")
 
 			# Special treatment for some attributes
 
@@ -619,14 +619,10 @@ class Requirement(WorkItem):
 			self.ID = ID
 			self.title = title
 
-		elif dict_mapping or row:  # csv initiation mode
+		elif row:  # csv initiation mode
 
-			if dict_mapping == None:
-				raise ValueError("'dict_mapping' is not given")
 			if row == None:
 				raise ValueError("'row' argument is not given")
-
-			self.dict_mapping = dict_mapping
 
 			# checking that the csv file has all wanted attributes else initiate object
 			for attrib in Requirement.expected_attributes.keys():
@@ -728,14 +724,10 @@ class Diagnostic(WorkItem):
 			self.ID = ID
 			self.title = title
 
-		elif dict_mapping or row:  # csv initiation mode
+		elif row:  # csv initiation mode
 
-			if dict_mapping == None:
-				raise ValueError("'dict_mapping' is not given")
 			if row == None:
 				raise ValueError("'row' argument is not given")
-
-			self.dict_mapping = dict_mapping
 
 			# checking that the csv file has all wanted attributes else initiate object
 			for attrib in Diagnostic.expected_attributes.keys():
@@ -845,14 +837,10 @@ class DetailedDesign(WorkItem):
 			self.requirements = requirements
 			self.diagnostics = diagnostics
 
-		elif dict_mapping or row:  # csv initiation mode
+		elif row:  # csv initiation mode
 
-			if dict_mapping == None:
-				raise ValueError("'dict_mapping' is not given")
 			if row == None:
 				raise ValueError("'row' argument is not given")
-
-			self.dict_mapping = dict_mapping
 
 			# checking that the csv file has all wanted attributes else initiate object
 			for attrib in DetailedDesign.expected_attributes.keys():
@@ -969,14 +957,10 @@ class Interface(WorkItem):
 			self.ID = ID
 			self.title = title
 
-		elif dict_mapping or row:  # csv initiation mode
+		elif row:  # csv initiation mode
 
-			if dict_mapping == None:
-				raise ValueError("'dict_mapping' is not given")
 			if row == None:
 				raise ValueError("'row' argument is not given")
-
-			self.dict_mapping = dict_mapping
 
 			# checking that the csv file has all wanted attributes else initiate object
 			for attrib in Interface.expected_attributes.keys():
