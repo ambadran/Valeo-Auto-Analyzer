@@ -396,7 +396,12 @@ class Component(WorkItem):
 			wanted_component = possible_components[0]
 			wanted_component.CAT_num = CAT_num
 		else:
-			print(f"Detected multiple components with same title:\n{[(component.document, component.status) for component in possible_components]}")
+			print(f"Detected multiple components with same title:")
+			for comp in possible_components:
+				print(f"- {comp.title}, {comp.ID}, {comp.status}, {comp.document}")
+
+			print()
+			print()
 
 		############################################### filtering possible components ############################################
 		for component in possible_components:
