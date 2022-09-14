@@ -257,8 +257,8 @@ class Component(WorkItem):
 			normally: variant, linked work items and document are the ones missing
 		"""
 
-		if (ID or title) and (dict_mapping or row):
-			raise ValueError("Can't input both attributes and (dict_mapping or row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+		if (ID or title) and (row):
+			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
 		
 		if ID or title:  # direct initiation mode
 			
@@ -602,12 +602,12 @@ class Requirement(WorkItem):
 						   'components': 'Component'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, dict_mapping: dict = {}, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title) and (dict_mapping or row):
-			raise ValueError("Can't input both attributes and (dict_mapping or row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+		if (ID or title) and (row):
+			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
 		
 		if ID or title:  # direct initiation mode
 			
@@ -711,12 +711,12 @@ class Diagnostic(WorkItem):
 						   'components': 'Component'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, dict_mapping: dict = {}, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title) and (dict_mapping or row):
-			raise ValueError("Can't input both attributes and (dict_mapping or row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+		if (ID or title) and (row):
+			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
 		
 		if ID or title:  # direct initiation mode
 			
@@ -822,12 +822,12 @@ class DetailedDesign(WorkItem):
 						   'interfaces': 'Interface'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, requirements: List[Requirement] = None, diagnostics: List[Diagnostic] = None, dict_mapping: dict = {}, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, requirements: List[Requirement] = None, diagnostics: List[Diagnostic] = None, row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title or requirements or diagnostics) and (dict_mapping or row):
-			raise ValueError("Can't input both attributes and (dict_mapping or row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+		if (ID or title or requirements or diagnostics) and (row):
+			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
 		
 		if ID or title or requirements or diagnostics:  # direct initiation mode
 			
@@ -952,12 +952,12 @@ class Interface(WorkItem):
 						   'components_is_provided_by': 'Component_is_provided_by'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, dict_mapping: dict = {}, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title) and (dict_mapping or row):
-			raise ValueError("Can't input both attributes and (dict_mapping or row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+		if (ID or title) and (row):
+			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
 		
 		if ID or title:  # direct initiation mode
 			
