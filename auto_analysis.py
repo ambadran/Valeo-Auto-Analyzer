@@ -19,7 +19,6 @@ The Analysis step is made of 7 steps:
 __all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory']
 __author__ = 'AbdulRahman Mohsen Badran'
 __version__ = '0.1.0'
-t ='lksjfdkj'
 
 ########################################################################################################################################
 
