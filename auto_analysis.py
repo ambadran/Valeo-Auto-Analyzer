@@ -2348,7 +2348,7 @@ class Forth_block(Block_template):
 
 		########################################################################################
 		# finding and capturing function declaration code
-		unwanted_pattern = r'[ \t\n]if|for|while|switch|#if|#elif|#ifdef|#ifndef[\( \t\n]'
+		unwanted_pattern = r'[ \t\n](if|for|while|switch|#if|#elif|#ifdef|#ifndef)[\( \t\n]'
 		for ind, char in enumerate(code):
 
 			# finding functions
@@ -2420,6 +2420,7 @@ class Forth_block(Block_template):
 				if not re.findall(unwanted_pattern, possibly_a_func_def):
 					##### finally a func def is detected and saved ####
 					raw_func_def_code = possibly_a_func_def.strip()
+					print(raw_func_def_code)
 
 					### capturing line number
 					start_line_num = code[:ind+1].count("\n")
@@ -2444,6 +2445,11 @@ class Forth_block(Block_template):
 					end_line_num = code[:body_end_index].count("\n") + 1
 
 					func_defs_raw.append((raw_func_def_code, start_line_num, end_line_num, body))
+				else:
+					if 'PerformReset' in possibly_a_func_def:
+						print('lsjdfljdslkfjdslkfj\n\n')
+						print(re.findall(unwanted_pattern, possibly_a_func_def))
+						print('\n\nlksjdlfkjdskfjdslkfjlkdjf')
 			########################################################################################
 
 		# seperating retval and name from parameters and initiating Func
@@ -3411,7 +3417,7 @@ if __name__ == '__main__':
 	print("Reading polarian csv outputs and parsing data....")
 	read_assign_all_CSVs()
 
-	component_name = "SftyRslvrCalcn"
+	component_name = "DcmExt"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
