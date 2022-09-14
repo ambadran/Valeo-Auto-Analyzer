@@ -582,7 +582,7 @@ class Component(WorkItem):
 		# for key, value in self.__dict__.items():
 		# 	if key != "_Component__mapping_csv_title_csv_col":
 		# 		print(key)
-		return str({key: value for key, value in self.__dict__.items() if str(key) != "_Component__mapping_csv_title_csv_col"})
+		return str({key: value for key, value in self.__dict__.items()})
 
 class Requirement(WorkItem):
 	'''
@@ -790,7 +790,7 @@ class Diagnostic(WorkItem):
 		'''
 
 		'''
-		return str({key: value for key, value in self.__dict__.items() if str(key) != "dict_mapping" and str(key) != 'description'})
+		return str({key: value for key, value in self.__dict__.items() if str(key) != 'description'})
 
 class DetailedDesign(WorkItem):
 	'''
@@ -919,7 +919,7 @@ class DetailedDesign(WorkItem):
 		'''
 
 		'''
-		return str({key: value for key, value in self.__dict__.items() if str(key) != "dict_mapping" and str(key) != 'description'})
+		return str({key: value for key, value in self.__dict__.items() if str(key) != 'description'})
 
 class Interface(WorkItem):
 	'''
@@ -1024,7 +1024,7 @@ class Interface(WorkItem):
 		'''
 
 		'''
-		return str({key: value for key, value in self.__dict__.items() if str(key) != "dict_mapping" and str(key) != 'description'})
+		return str({key: value for key, value in self.__dict__.items() if str(key) != 'description'})
 ########################################################################################################################################
 
 
