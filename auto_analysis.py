@@ -1284,6 +1284,7 @@ class CodeSwitch:
 	line_num: int
 	end_line_num: int
 	is_enabled: bool
+	has_nested_code_switch: bool
 
 @dataclass
 class CodeComment:
@@ -1995,11 +1996,28 @@ class Forth_block(Block_template):
 			c_file += 'int main () {\n'
 			current_end = None
 			for ind, code_switch in enumerate(code_switches):
+
+				#### to handle #elif not to get printed twice
 				if current_end != code_switch.title:
-					c_file += f"\t{code_switch.title}\n"	
+					c_file += f"\t{code_switch.title}\n"
+
 				c_file += f"\t\tprintf(\"{ind}\\n\");\n"
-				c_file += f"\t{code_switch.end}\n"
+
+				#### to handle 
+				# #IF
+				#	#IF
+				#	#endif
+				# #else
+				# #endif
+				# should not print the end of the mother #IF, aka should not put #else
+				# men el akher -> DON'T PUT END STATMENT IF NEXT CODE SWITCH IS NESTED
+				if '#endif' in code_switch.end:
+					c_file += f"\t{code_switch.end}\n"
+				elif not code_switch.has_nested_code_switch:
+					c_file += f"\t{code_switch.end}\n"
+
 				current_end = code_switch.end
+			
 			c_file += '\treturn 0;\n}'
 
 
@@ -2121,6 +2139,8 @@ class Forth_block(Block_template):
 
 					if end_line_num < line_num:
 						raise ValueError("COULDN'T FIND END OF CODE SWITCH BLOCK", line_num, end_line_num)
+
+					# Found valid code witch with openning and ending
 					code_lines = lines[line_num:end_line_num+1]  # block of code switch, from #if/ifndef/ifdef to #else/elif/endif
 
 					# filtering comments from first line ( the one that has the opening statement, e.g- #IF)
@@ -2133,7 +2153,11 @@ class Forth_block(Block_template):
 
 					is_enabled = None
 
-					code_switches.append(CodeSwitch(title, ending, code_lines, function, line_num+1, end_line_num+1, is_enabled))
+					has_nested_code_switch = False
+					if opennings_count > 1:
+						has_nested_code_switch = True
+
+					code_switches.append(CodeSwitch(title, ending, code_lines, function, line_num+1, end_line_num+1, is_enabled, has_nested_code_switch))
 					break
 
 		if not code_switches:  # didn't find any code switches
@@ -3343,7 +3367,7 @@ if __name__ == '__main__':
 	print("Reading polarian csv outputs and parsing data....")
 	read_assign_all_CSVs()
 
-	component_name = "BswErrDeb"
+	component_name = "BswM_UserCallouts"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
