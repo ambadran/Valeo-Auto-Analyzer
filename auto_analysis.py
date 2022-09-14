@@ -6,7 +6,7 @@ This Script does three things:
 	2- Analyse the C file (Block_template classes)
 	3- Exports Data
 
-The Analysis step is made of 7 steps:
+The Analysis step is made of 6 steps:
 	1- Code Function Coverage Analysis
 	2- Dead Code Analysis
 	3- Code Switches Analysis
@@ -53,6 +53,7 @@ except ImportError:
 
 ########################################################################################################################################
 ### constants
+
 global DISABLE_REPORT_SEARCH
 DISABLE_REPORT_SEARCH = False
 global MANUAL_CAT3_MODE_INPUT
@@ -400,7 +401,6 @@ class Component(WorkItem):
 			for comp in possible_components:
 				print(f"- {comp.title}, {comp.ID}, {comp.status}, {comp.document}")
 
-			print()
 			print()
 
 		############################################### filtering possible components ############################################
@@ -2622,7 +2622,7 @@ class Fifth_block(Block_template):
 
 	def get_code_comments_all(self) -> List[CodeComment]:
 		"""
-
+		:returns ALL comments in the file
 		"""
 		code_comments: List[CodeComment]  = []
 		
@@ -2663,6 +2663,24 @@ class Fifth_block(Block_template):
 					start_line = code_comments_raw[ind].start_line_num
 				else:
 					code_comments.append(code_comments_raw[ind])
+		#134 98
+		# detect // \n comments ;)
+		code = deepcopy(self.code_file)
+		for ind, char in enumerate(code):
+			if code[ind:ind+2] == '//':
+				
+				### detected // comment
+				# end index is from where we found the comment plus all the characters until end of line
+				next_new_line = ind+2 + code[ind+2:].find('\n')  
+				comment = code[ind+2 : next_new_line]
+				
+				# line number is found by counting all previous '\n'
+				start_line_num = code[:ind+1].count('\n') + 1
+				end_line_num = start_line_num  # since all // comment ends by starting a newline
+				
+				code_comments.append(CodeComment(comment, start_line_num, end_line_num))
+				print(code_comments[-1])
+
 		return code_comments
 
 	def get_func_comments(self) -> Tuple[List[FuncComment], List[CodeComment]]:
@@ -2732,6 +2750,7 @@ class Fifth_block(Block_template):
 	def get_code_comments(self) -> List[CodeComment]:
 		"""
 		searches code file and filters for the one line code comment as well as one with obvious keywords
+		:returns: problematic code comments that will be put in the output
 		"""
 		
 		# extracting function comments that doesn't match the functions they're commenting
@@ -2751,7 +2770,7 @@ class Fifth_block(Block_template):
 		print("function comments that don't match function declaration code: ", len(problematic_func_comments))
 		
 		# extracting definitly prolematic
-		problematic_patterns = [r"todo", r"fixme", r"don't use", r"do not use", r"remove", r"why"]
+		problematic_patterns = [r"todo", r"fixme", r"don't use", r"do not use", r"remove", r"why", r"cz", r"not implemented"]
 		non_func_comments_filtered = []
 		found_problematic_pattern = False
 		print("length of non_func_comments:", len(self.non_func_comments))
@@ -2869,24 +2888,31 @@ class Sixth_block(Block_template):
 		for ind, dd in enumerate(self.component.detailed_designs):
 			dd.comment = ""
 
-			# check if choosen variant == dd variant
-			if not self.first_block.variant.capitalize() in dd.variant:
-				dd.comment += "The variant of this DD is different from the variant of the current component being analysed"
-
-			if not dd.check_sw_component():
-				dd.comment += "DD is not attached to SW component"
+			# check if DD has a variant
+			if not dd.variant:
+				dd.comment += "- This DD has Empty Variant Attribute\n"
 			
-			if not dd.check_req_diag():  # checking if component has req or diag
-				dd.comment += "No requirements or Diagnostics found\n"
+			# if it does have a variant it should be a variant we are analyzing
+			elif not self.first_block.variant.capitalize() in dd.variant:
+				dd.comment += "- The variant of this DD is different from the variant of the current component being analysed\n"
 
-			else:  # checking each req in the dd if the req itself is linked to the dd. Same for diagnostics
+			# check if DD has a component attached to it
+			if not dd.check_sw_component():
+				dd.comment += "- DD is not attached to SW component\n"
+			
+			# checking if DD has requirements or diagnostics			
+			if not dd.check_req_diag():  # checking if component has req or diag
+				dd.comment += "- No requirements or Diagnostics found\n"
+
+			# checking each req in the dd if the req itself is linked to the dd. Same for diagnostics
+			else:  
 				for req in dd.requirements:
 					for dd2 in req.detailed_designs:
 						if dd2.ID == dd.ID:
 							# print(req.title, dd.title, dd2.title, 'MATCH!!!')
 							break
 					else:
-						comment += f"Requirement: '{req.title}' with ID '{req.ID} doesn't have DD: '{DD.title}' with ID: '{dd.ID}' in its attributes while the DD has the requirement in its attributes"
+						comment += f"- Requirement: '{req.title}' with ID '{req.ID} doesn't have DD: '{DD.title}' with ID: '{dd.ID}' in its attributes while the DD has the requirement in its attributes\n"
 						print(req.title, dd.title, dd2.title, 'No match found')
 
 				for diag in dd.diagnostics:
@@ -2895,7 +2921,7 @@ class Sixth_block(Block_template):
 							# print(diag.title, dd.title, dd2.title, 'MATCH!!!')
 							break
 					else:
-						comment += f"Diagnostic: '{diag.title}' with ID '{diag.ID} doesn't have DD: '{DD.title}' with ID: '{dd.ID}' in its attributes while the DD has the diagnostic in its attributes"
+						comment += f"- Diagnostic: '{diag.title}' with ID '{diag.ID} doesn't have DD: '{DD.title}' with ID: '{dd.ID}' in its attributes while the DD has the diagnostic in its attributes\n"
 						print(diag.title, dd.title, dd2.title, 'no match found')
 
 			if dd.comment == '':
@@ -2962,8 +2988,8 @@ class Sixth_block(Block_template):
 	def csv_ready_internal(self):
 		output = []
 		
+		#### MAIN TABLE	####
 		output.append(["SN", "D.D function ID", "D.D function", "Linked SW requirement", "SW Req Id", "Is DD function against SW requiremnet required by VW?", "variant"])
-		
 		counter = 1
 		if self.detailed_design:
 			for dd in self.detailed_design:
@@ -2989,6 +3015,9 @@ class Sixth_block(Block_template):
 		else:  # what happens if no dd found at all for the whole component?!?
 			output.append(["This component has no detailed_designs"])  
 
+
+		#### EXTRA TABLES ####
+		# DDS that doesn't have a component attached to
 		if self.dd_no_comp_matches:
 			output.append(["detailed_designs that doesn't have component attached to it"])
 			output.append(['No.', 'Name', 'ID'])
@@ -2997,6 +3026,7 @@ class Sixth_block(Block_template):
 				output.append([counter, dd.title, dd.ID])
 				counter += 1
 
+		# DDs that doesn't have a function in code
 		if self.dd_func_name_unmatch:
 			output.append(["Functions that doesn't have detailed design in polarian"])
 			output.append(['No.', 'Name', 'Comment'])
@@ -3005,6 +3035,7 @@ class Sixth_block(Block_template):
 				output.append([counter, func.name, f"line number: {func.start_line_num+1}"])
 				counter += 1
 
+		# Functions in code that doesn't have a DD
 		if self.func_dd_name_unmatch:
 			output.append(["detailed_designs that doesn't have a function implementation in code "])
 			output.append(['No.', "Name", "ID", "Comment"])
@@ -3013,6 +3044,7 @@ class Sixth_block(Block_template):
 				output.append([counter, dd.title, dd.ID])
 				counter += 1
 
+		# Requirements that doesn't have any DD attached to it
 		if self.req_with_no_dd:
 			output.append(["Requirements that doesn't have detailed designs attached to it"])
 			output.append(['No.', 'Name', "ID"])
@@ -3021,6 +3053,7 @@ class Sixth_block(Block_template):
 				output.append([counter, req.title, req.ID])
 				counter += 1
 
+		# Diagnostics that doesn't have any DD attached to it
 		if self.diag_with_no_dd:
 			output.append(["Diagnostics that doesn't have detailed designs attached to it"])
 			output.append(['No.', 'Name', "ID"])
@@ -3183,16 +3216,73 @@ class Seventh_block(Block_template):
 
 
 ########################################################################################################################################
-# Main Functions
+#### Main Functions
+
+# External and Internal (put in __all__)
 def set_wanted_directory(homedir_in):
 	'''
+	Meant to be called from a user script, e.g- a CLI
 	sets the home directory the user will interact with
+	This is done by calling an internal function in the main script itself
 	e.g - put polarian csv files in, get output files, etc..
 	'''
 	set_wanted_directory_internal(homedir_in)
 
+def read_assign_all_CSVs():
+	'''
+	reads and assigns all csvs to internal class variable
+	THIS IS THE CORRECT IMPLEMENTATION
+	'''
 
+	Component.get_all_from_csv(assign_class_variable=True, hash_key='ID')
+
+	DetailedDesign.get_all_from_csv(assign_class_variable=True, hash_key='ID')
+
+	Diagnostic.get_all_from_csv(assign_class_variable=True, hash_key='ID')
+
+	Requirement.get_all_from_csv(assign_class_variable=True, hash_key='ID')
+
+	Interface.get_all_from_csv(assign_class_variable=True, hash_key='ID')
+
+def analyze_component(wanted_component=None, variant=None, branch=None, paths_to_code_in=None, path_to_reports_in=None, path_to_tcc_in=None):
+	'''
+	Executes the steps to analyze the wanted component
+	'''
+
+	# making paths global so it can be accessable anywhere, when running this function from another file
+	global paths_to_code
+	if paths_to_code_in:
+		paths_to_code = paths_to_code_in
+
+	global path_to_reports
+	if path_to_reports_in:
+		path_to_reports = path_to_reports_in
+
+	global path_to_tcc
+	if path_to_tcc_in:
+		path_to_tcc = path_to_tcc_in
+
+	##### Executing the script ######
+	# Step 1: link all workitems together
+	print("Linking all Work Items together...")
+	wanted_component.link_internals_all()
+	if wanted_component.is_linked:
+		print("Done linking\n\n")
+
+	# Step 2: Run all bocks
+	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
+	blocks = create_blocks(wanted_component, variant, branch)
+	print('\nAnalysis is Completed Successfully!!!\n')
+
+	# Step 3: Export outputs
+	export_csv(blocks)
+
+
+# Internal Only
 def set_wanted_directory_internal(homedir_in):
+	'''
+	sets homedir for the main script itself
+	'''
 	global homedir
 	homedir = homedir_in
 	os.chdir(homedir)
@@ -3244,58 +3334,6 @@ def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_rep
 	print("Done creating all Blocks\n")
 
 	return blocks
-
-
-def read_assign_all_CSVs():
-	'''
-	reads and assigns all csvs to internal class variable
-	THIS IS THE CORRECT IMPLEMENTATION
-	'''
-
-	Component.get_all_from_csv(assign_class_variable=True, hash_key='ID')
-
-	DetailedDesign.get_all_from_csv(assign_class_variable=True, hash_key='ID')
-
-	Diagnostic.get_all_from_csv(assign_class_variable=True, hash_key='ID')
-
-	Requirement.get_all_from_csv(assign_class_variable=True, hash_key='ID')
-
-	Interface.get_all_from_csv(assign_class_variable=True, hash_key='ID')
-
-
-def analyze_component(wanted_component=None, variant=None, branch=None, paths_to_code_in=None, path_to_reports_in=None, path_to_tcc_in=None):
-	'''
-	Executes the steps to analyze the wanted component
-	'''
-
-	# making paths global so it can be accessable anywhere, when running this function from another file
-	global paths_to_code
-	if paths_to_code_in:
-		paths_to_code = paths_to_code_in
-
-	global path_to_reports
-	if path_to_reports_in:
-		path_to_reports = path_to_reports_in
-
-	global path_to_tcc
-	if path_to_tcc_in:
-		path_to_tcc = path_to_tcc_in
-
-	##### Executing the script ######
-	# Step 1: link all workitems together
-	print("Linking all Work Items together...")
-	wanted_component.link_internals_all()
-	if wanted_component.is_linked:
-		print("Done linking\n\n")
-
-	# Step 2: Run all bocks
-	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
-	blocks = create_blocks(wanted_component, variant, branch)
-	print('\nAnalysis is Completed Successfully!!!\n')
-
-	# Step 3: Export outputs
-	export_csv(blocks)
-
 ########################################################################################################################################
 
 
@@ -3343,6 +3381,7 @@ def export_csv(blocks: List):
 
 	print(f"Exported CSV files for {blocks[0].variant}\n######################################\n\n")
 
+
 class GoogleSheet:  # Awaiting Permission :(
 	def __init__(self):
 		pass
@@ -3372,7 +3411,7 @@ if __name__ == '__main__':
 	print("Reading polarian csv outputs and parsing data....")
 	read_assign_all_CSVs()
 
-	component_name = "BswM_UserCallouts"
+	component_name = "SftyRslvrCalcn"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
@@ -3380,7 +3419,7 @@ if __name__ == '__main__':
 	print(f"Finding Component: {component_name} in Polarian\n")
 	wanted_component = Component.get_component(component_name, CAT_num, branch)
 	if wanted_component.found_in_polarian:
-		print("Found Component: {wanted_component.true_title} in Polarian!\n")
+		print(f"Found Component: {wanted_component.true_title} in Polarian!\n")
 
 	paths_to_code = [r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\Components",
 					r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\workspace",
