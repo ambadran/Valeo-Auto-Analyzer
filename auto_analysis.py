@@ -2420,7 +2420,6 @@ class Forth_block(Block_template):
 				if not re.findall(unwanted_pattern, possibly_a_func_def):
 					##### finally a func def is detected and saved ####
 					raw_func_def_code = possibly_a_func_def.strip()
-					print(raw_func_def_code)
 
 					### capturing line number
 					start_line_num = code[:ind+1].count("\n")
@@ -2445,11 +2444,6 @@ class Forth_block(Block_template):
 					end_line_num = code[:body_end_index].count("\n") + 1
 
 					func_defs_raw.append((raw_func_def_code, start_line_num, end_line_num, body))
-				else:
-					if 'PerformReset' in possibly_a_func_def:
-						print('lsjdfljdslkfjdslkfj\n\n')
-						print(re.findall(unwanted_pattern, possibly_a_func_def))
-						print('\n\nlksjdlfkjdskfjdslkfjlkdjf')
 			########################################################################################
 
 		# seperating retval and name from parameters and initiating Func
@@ -3284,7 +3278,28 @@ def analyze_component(wanted_component=None, variant=None, branch=None, paths_to
 	export_csv(blocks)
 
 
-# Internal Only
+# Internal Only Functions
+def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, path_to_reports_in, path_to_tcc_in):
+	'''
+	Does all the steps necessary to start analyzing
+	Meant to be used here in this file internally for rapid debugging
+	'''
+	### set the directory
+	set_wanted_directory(homedir)
+
+	### Read CSV files
+	print("Reading polarian csv outputs and parsing data....")
+	read_assign_all_CSVs()
+
+	# get wanted component object
+	print(f"Finding Component: {component_name} in Polarian\n")
+	wanted_component = Component.get_component(component_name, CAT_num, branch)
+	if wanted_component.found_in_polarian:
+		print(f"Found Component: {wanted_component.true_title} in Polarian!\n")
+
+	### Commencing the Analysis
+	analyze_component(wanted_component, variant, branch, paths_to_code, path_to_reports, path_to_tcc)
+
 def set_wanted_directory_internal(homedir_in):
 	'''
 	sets homedir for the main script itself
@@ -3389,10 +3404,19 @@ def export_csv(blocks: List):
 
 
 class GoogleSheet:  # Awaiting Permission :(
+	'''
+	
+	'''
 	def __init__(self):
+		'''
+
+		'''
 		pass
 
 	def create(self):
+		'''
+
+		'''
 		pass
 ########################################################################################################################################
 
@@ -3410,22 +3434,12 @@ if __name__ == '__main__':
 	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
-	### set the directory
-	set_wanted_directory(homedir)
 
 	### Inputs
-	print("Reading polarian csv outputs and parsing data....")
-	read_assign_all_CSVs()
-
 	component_name = "DcmExt"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
-
-	print(f"Finding Component: {component_name} in Polarian\n")
-	wanted_component = Component.get_component(component_name, CAT_num, branch)
-	if wanted_component.found_in_polarian:
-		print(f"Found Component: {wanted_component.true_title} in Polarian!\n")
 
 	paths_to_code = [r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\Components",
 					r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\workspace",
@@ -3436,8 +3450,7 @@ if __name__ == '__main__':
 	path_to_tcc = 'C:\\tcc'
 	
 
-	### Commencing the Analysis
-	analyze_component(wanted_component, variant, branch, paths_to_code, path_to_reports, path_to_tcc)
-
+	### Run the script
+	main(homedir, component_name, CAT_num, branch, variant, paths_to_code, path_to_reports, path_to_tcc)
 ########################################################################################################################################
 
