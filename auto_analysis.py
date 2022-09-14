@@ -3436,7 +3436,7 @@ if __name__ == '__main__':
 
 
 	### Inputs
-	component_name = "SftyRslvrCalcn"
+	component_name = "SftyAcEvln"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
