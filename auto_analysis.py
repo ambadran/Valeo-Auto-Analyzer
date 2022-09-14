@@ -3230,8 +3230,7 @@ def set_wanted_directory(homedir_in):
 
 def read_assign_all_CSVs():
 	'''
-	reads and assigns all csvs to internal class variable
-	THIS IS THE CORRECT IMPLEMENTATION
+	reads and assigns all csvs to internal class variable cls.all_objects
 	'''
 
 	Component.get_all_from_csv(assign_class_variable=True, hash_key='ID')
@@ -3266,6 +3265,7 @@ def analyze_component(wanted_component=None, variant=None, branch=None, paths_to
 	# Step 1: link all workitems together
 	print("Linking all Work Items together...")
 	wanted_component.link_internals_all()
+	# In case a component doens't have linkedworkitem
 	if wanted_component.is_linked:
 		print("Done linking\n\n")
 
@@ -3281,7 +3281,7 @@ def analyze_component(wanted_component=None, variant=None, branch=None, paths_to
 # Internal Only Functions
 def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, path_to_reports_in, path_to_tcc_in):
 	'''
-	Does all the steps necessary to start analyzing
+	Does all the steps necessary to start analyzing a component
 	Meant to be used here in this file internally for rapid debugging
 	'''
 	### set the directory
@@ -3430,13 +3430,13 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	DOCUMENT_CHOOSEN_NUMBER = None  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
 	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "DcmExt"
+	component_name = "SftyRslvrCalcn"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
