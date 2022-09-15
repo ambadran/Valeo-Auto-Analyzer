@@ -22,7 +22,7 @@ __version__ = '0.1.0'
 
 ########################################################################################################################################
 
-print('new_new222')
+
 
 ########################################################################################################################################
 ### imports
@@ -3073,7 +3073,6 @@ def read_assign_all_CSVs():
 	'''
 	reads and assigns all csvs to internal class variable cls.all_objects
 	'''
-	print('new_internal test33333')
 	Component.get_all_from_csv(assign_class_variable=True, hash_key='ID')
 
 	DetailedDesign.get_all_from_csv(assign_class_variable=True, hash_key='ID')
