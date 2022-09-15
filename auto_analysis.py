@@ -73,19 +73,110 @@ class WorkItem(ABC):
 	This is the parent of all present 'workitems'
 	'''
 
-	def __init__(self):
+	#### CLASS VARIABLES ####
+	''' Maps which coloumn in the csv file points to which wanted attribute of an object
+	the key: str is the name of the column which will match one expected_attribute.keys()
+	the value: int is the order of which column was they key in in the csv file
+	not yet assigned, will be when get_all_from_csv() is called '''
+	dict_mapping: Dict[str, int] = None 
+	
+	''' Map column titles from the CSV to attribute names of the object
+	keys are the name of the columns in the exported csv file from polarian
+	values are the names of the attribute of the object to be initiated
+	e.g in csv file there is a column 'Space / Document', after object initiation, there will be obj.document '''
+	expected_attributes: Dict[str, str] = None
+
+	''' Maps names of WorkItem classes to the keyword they are linked with in attribute self.linked_work_items
+	keys are the name of the classes, e.g- 'Component', 'DetailedDesign', etc..
+	values are the linking keyword in linked_work_items, e.g- 'is parent of', 'has parent', 'realizes', etc.. '''
+	link_keywords: Dict[str, str] = None
+
+	''' Maps self.linked keys (name of the attribute objects linked) to the wanted name in the end
+	keys are the actual keys in the self.linked
+	values are the attributes to be called with, implemented using __getattr__
+	e.g- self._linked['DetailedDesign'] has all the linked DetailedDesign objects to the current object
+	instead of calling self._linked['DetailedDesign'] every time 
+	the cls.linked_attrib_names will provide mapping to the long unwanted name 'DetailedDesign' to an easier name (also makes more sense) 'detailed_designs'
+	and now after implementing __getattr__, we can call DD objects using self.detailed_designs which == self._linked['DetailedDesign'] '''
+	linked_attrib_names: Dict[str, str] = None
+
+
+	def __init__(self, ID=None, title=None, row=None, **kwargs):
 		'''
-		Constructor
+		Generalized Constructor for any workitem
 		'''
+		# initiating the ABC class
 		super().__init__()
+
+		# Prevent initiate mode conflict
+		if (ID or title) and (row):
+			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+
+		# Direct Initiation Mode
+		if ID or title:  
+			
+			self.ID = ID
+			self.title = title
+			self.__dict__.update(kwargs)
+
+		# CSV Initiation Mode
+		elif row: 
+
+			### Initiating the Object
+			obj_dict = {}
+			for attrib in self.expected_attributes.keys():
+				if attrib not in self.dict_mapping.keys():
+					raise ValueError(f"The read csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {self.expected_attributes.keys()}")
+				else:
+					exec(f"self.{self.expected_attributes[attrib]} = row[{self.dict_mapping[attrib]}]")
+
+			#### Special treatment for some attributes
+			# variant
+			if 'variant' in self.expected_attributes.values():
+				self.variant = self.variant.split(', ')
+
+			# linked work items
+			# this is a MUST attribute, every workitem should have linked work items if exported from CSV
+			dict_ = deepcopy(self.linked_work_items)
+			self.linked_work_items = {}
+			tmps = dict_.split(', ')
+			for tmp in tmps:  # remove the numerate
+				colon = tmp.find(': ')
+
+				if colon != -1:
+					key = tmp[:colon]
+					value = tmp[colon+2:]
+					if ' ' in value:
+						value = value[:value.find(' ')]
+
+					if key in self.linked_work_items.keys():
+						self.linked_work_items[key].append(value)
+					else:
+						self.linked_work_items[key] = [value]
+
+				else:
+					if 'unknown' in self.linked_work_items.keys():
+						self.linked_work_items['unknown'].append(tmp)
+					else:
+						self.linked_work_items['unknown'] = [tmp]
+
+		### linking attributes
+		# checks whether to be linked WorkItems are linked or not
+		self.workitems_type_set = {name: False for name in self.link_keywords.keys()}
+
+		# This is an internal Dict which groups all types of linked WorkItem objects (initiated, aka actual objects, not just IDs like in self.linked_work_items)
+		self._linked = {name: [] for name in self.link_keywords.keys()}
+
+		# if it's initiated form CSV, then the CSV is assumed to be outputed from Polarian
+		self.found_in_polarian = True
 
 	def __getattr__(self, name):
 		'''
-		this is to make getting linked work items from self.linked easier
+		this is to make getting linked work items from self._linked easier
 		:name: is expected to be small case class name with 's' in the end
 				e.g requirements for Requirement objects
 		'''
-		return self.linked[self.linked_attrib_names[name]]
+		return self._linked[self.linked_attrib_names[name]]
 
 	@classmethod
 	@abstractmethod
@@ -105,14 +196,16 @@ class WorkItem(ABC):
 		returns all object_list from polarian ouptut of cls.__name__ csv file
 		"""
 		object_list = []
-		Path(f"input_files/polarian_csv_outputs/").mkdir(parents=True, exist_ok=True)
 
+		# Check if the class CSV file is there
+		Path(f"input_files/polarian_csv_outputs/").mkdir(parents=True, exist_ok=True)
 		try:
 			f = open(f'input_files/polarian_csv_outputs/{cls.__name__}.csv', 'r')
 			f.close()
 		except FileNotFoundError:
 			raise FileNotFoundError(f"\n\nPlease put csv file of {cls.__name__}.csv exported from polarian in the designated folder")
 
+		# Found the file. Commencing reading the CSV
 		with open(f"input_files/polarian_csv_outputs/{cls.__name__}.csv", 'r', encoding='utf-8') as csv_file:
 			csv_reader = csv.reader(csv_file, delimiter = ';')
 			
@@ -128,6 +221,7 @@ class WorkItem(ABC):
 				if col_name not in cls.dict_mapping.keys():
 					raise ValueError(f"\n\n{cls.__name__}.csv doesn't have attribute '{col_name}'\nplease export another csv file from polarian with this attribute")
 
+			# Creating the Objects from the CSV entries
 			for row in csv_reader:
 				object_list.append(cls(row=row))
 
@@ -187,12 +281,13 @@ class WorkItem(ABC):
 			self.workitems_type_set[target_name] = True
 
 			if type(self.link_keywords[target_name]) == str:
+				# link WorkItem to another WorkItem that has only one link_keyword
 				
 				if self.link_keywords[target_name] in self.linked_work_items.keys():
 					for ID in self.linked_work_items[self.link_keywords[target_name]]:
 						obj = choosen_class.all_objects.get(ID, None)
 						if obj is not None:
-							self.linked[target_name].append(obj)
+							self._linked[target_name].append(obj)
 							choosen_class.all_objects[ID].link(type(self))
 			
 			elif type(self.link_keywords[target_name]) == tuple:  
@@ -200,18 +295,18 @@ class WorkItem(ABC):
 				for keyword in self.link_keywords[target_name]:
 					# creating custom entry in the linked dictionary then will combine them normally
 					new_custome_name = f"{target_name}_{keyword.replace(' ', '_')}"
-					self.linked[new_custome_name] = []
+					self._linked[new_custome_name] = []
 
 					# doing the normal stuff
 					if keyword in self.linked_work_items.keys():
 						for ID in self.linked_work_items[keyword]:
 							obj = choosen_class.all_objects.get(ID, None)
 							if obj is not None:
-								self.linked[new_custome_name].append(obj)
+								self._linked[new_custome_name].append(obj)
 								choosen_class.all_objects[ID].link(type(self))
 
 					# now combining the different stuff like normal attributes
-					self.linked[target_name].extend(self.linked[new_custome_name])
+					self._linked[target_name].extend(self._linked[new_custome_name])
 
 			else:
 				raise ValueError("HOW?!??!?!?!")
@@ -223,6 +318,7 @@ class WorkItem(ABC):
 		for workitem in self.link_keywords.keys():
 			self.link(eval(workitem))
 
+
 class Component(WorkItem):
 	'''
 	Doc String of Components Class
@@ -232,13 +328,12 @@ class Component(WorkItem):
 	# class variables
 	expected_attributes = {"ID": 'ID', "Title": "title", "Variant": 'variant', "Linked Work Items": 'linked_work_items',
 							 "Severity": 'severity', "Status": 'status', "Space / Document": 'document'} #, "Comments": 'comments'}  # these must be just like how it's outputed from polarian
-	
-	dict_mapping = None  # not yet assigned, will be when get_components() is called
-	
+
 	link_keywords = {'DetailedDesign': 'is parent of',
 					 'Requirement': 'realizes',
 					 'Diagnostic': 'realizes',
 					 'Interface': ('uses', 'provides')}
+
 	linked_attrib_names = {'detailed_designs': 'DetailedDesign',
 						   'requirements': 'Requirement',
 						   'diagnostics': 'Diagnostic',
@@ -247,82 +342,26 @@ class Component(WorkItem):
 						   'interfaces_provides': 'Interface_provides'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, variant: str = None, status: str = None, document: str = None, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, variant: str = None, status: str = None, 
+				document: str = None, detailed_designs: list = [], requirements: list = [], diagnostics: list = [],
+				interfaces: list = [], interfaces_uses: list = [], interfaces_provides: list = [],
+				row: list = []):
 		"""
-		Components Class!
-
-		row is one row of the exported csv from polarian in the following order
-		self.title_mapping must be defined
-
-		csv must have: ID, title, variant, linked work items, severity, status, document
-			normally: variant, linked work items and document are the ones missing
+		Constructor
 		"""
 
-		if (ID or title) and (row):
-			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
-		
-		if ID or title:  # direct initiation mode
-			
-			if not title:
-				raise ValueError("'title' attribute is not given")
-			# elif not ID:
-			# 	raise ValueError("'ID' attribute is not given")
+		### Running the generalized constructor
+		super().__init__(ID, title, row, variant=variant, status=status, document=document, detailed_designs=detailed_designs, 
+						requirements=requirements, diagnostics=diagnostics, interfaces=interfaces, interfaces_uses=interfaces_uses, 
+						interfaces_provides=interfaces_provides)
 
-			self.ID = ID
-			self.title = title
-			self.variant = variant
-			self.status = status
-			self.document = document
+		### Extra things special to Component class objects only
+		# making sure the component has a variant
+		if len(self.variant) == 0:
+			raise ValueError("This component has no variant (base+/-) ?!?!")
 
-		elif row:  # csv initiation mode
-
-			# checking that the csv file has all wanted attributes else initiate object
-			for attrib in Component.expected_attributes.keys():
-				if attrib not in Component.dict_mapping.keys():
-					raise ValueError(f"The SW_component.csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {Component.expected_attributes}")
-				else:
-					exec(f"self.{Component.expected_attributes[attrib]} = row[{Component.dict_mapping[attrib]}]")
-
-			# Special treatment for some attributes
-
-			# variant
-			self.variant = self.variant.split(', ')
-
-			# making sure the component has a variant
-			if len(self.variant) == 0:
-				raise ValueError("This component has no variant (base+/-) ?!?!")
-
-			# linked work items
-			dict_ = deepcopy(self.linked_work_items)
-			self.linked_work_items = {}
-			tmps = dict_.split(', ')
-			for tmp in tmps:  # remove the numerate
-				colon = tmp.find(': ')
-
-				if colon != -1:
-					key = tmp[:colon]
-					value = tmp[colon+2:]
-					if ' ' in value:
-						value = value[:value.find(' ')]
-
-					if key in self.linked_work_items.keys():
-						self.linked_work_items[key].append(value)
-					else:
-						self.linked_work_items[key] = [value]
-
-				else:
-					if 'unknown' in self.linked_work_items.keys():
-						self.linked_work_items['unknown'].append(tmp)
-					else:
-						self.linked_work_items['unknown'] = [tmp]
-
-		self.wrapper_stat = False  # just to deal with wrappers ;)
-
-		self.workitems_type_set = {name: False for name in Component.link_keywords.keys()}
-
-		self.linked = {name: [] for name in Component.link_keywords.keys()}
-
-		self.found_in_polarian = True
+		# just to deal with wrappers ;)
+		self.wrapper_stat = False  
 
 	@property
 	def true_title(self):
@@ -541,7 +580,7 @@ class Component(WorkItem):
 						for ID in self.linked_work_items[self.link_keywords[target_name]]:
 							obj = choosen_class.all_objects.get(ID, None)
 							if obj is not None:
-								self.linked[target_name].append(obj)
+								self._linked[target_name].append(obj)
 								choosen_class.all_objects[ID].link(type(self))
 
 								# This is the extra function that will be called only 
@@ -589,6 +628,7 @@ class Component(WorkItem):
 		# 		print(key)
 		return str({key: value for key, value in self.__dict__.items()})
 
+
 class Requirement(WorkItem):
 	'''
 	Doc String of Requirements Class
@@ -599,77 +639,22 @@ class Requirement(WorkItem):
 	expected_attributes = {"ID": 'ID', "Title": "title", "Variant": 'variant', "Linked Work Items": 'linked_work_items',
 							 "Status": 'status', "Space / Document": 'document', 'Description': 'description'}  # these must be just like how it's outputed from polarian
 	
-	dict_mapping = None
-	
 	link_keywords = {'Component': 'is realized in',
 					 'DetailedDesign': 'is realized in'}
+	
 	linked_attrib_names = {'detailed_designs': 'DetailedDesign',
 						   'components': 'Component'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, status: str = None, components: list = [], detailed_designs: list = [], row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title) and (row):
-			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
-		
-		if ID or title:  # direct initiation mode
-			
-			if not title:
-				raise ValueError("'title' attribute is not given")
-			elif not ID:
-				raise ValueError("'ID' attribute is not given")
 
-			self.ID = ID
-			self.title = title
+		### Running the generalized constructor
+		super().__init__(ID, title, row, status=status, components=components, detailed_designs=detailed_designs)
 
-		elif row:  # csv initiation mode
-
-			if row == None:
-				raise ValueError("'row' argument is not given")
-
-			# checking that the csv file has all wanted attributes else initiate object
-			for attrib in Requirement.expected_attributes.keys():
-				if attrib not in Requirement.dict_mapping.keys():
-					raise ValueError(f"The SW_requirement.csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {Requirement.expected_attributes}")
-				else:
-					exec(f"self.{Requirement.expected_attributes[attrib]} = row[{Requirement.dict_mapping[attrib]}]")
-
-			# Special treatment for some attributes
-
-			# variant
-			self.variant = self.variant.split(', ')
-
-
-			# linked work items
-			dict_ = deepcopy(self.linked_work_items)
-			self.linked_work_items = {}
-			tmps = dict_.split(', ')
-			for tmp in tmps:  # remove the numerate
-				colon = tmp.find(': ')
-
-				if colon != -1:
-					key = tmp[:colon]
-					value = tmp[colon+2:]
-					if ' ' in value:
-						value = value[:value.find(' ')]
-
-					if key in self.linked_work_items.keys():
-						self.linked_work_items[key].append(value)
-					else:
-						self.linked_work_items[key] = [value]
-
-				else:
-					if 'unknown' in self.linked_work_items.keys():
-						self.linked_work_items['unknown'].append(tmp)
-					else:
-						self.linked_work_items['unknown'] = [tmp]
-
-		self.workitems_type_set = {name: False for name in Requirement.link_keywords.keys()}
-
-		self.linked = {name: [] for name in Requirement.link_keywords.keys()}
-
+		### Extra things special to Component class objects only
 
 	@classmethod
 	def filter_object_list(cls, requirements):
@@ -694,6 +679,7 @@ class Requirement(WorkItem):
 		'''
 		return str({key: value for key, value in self.__dict__.items() if str(key) != "dict_mapping" and str(key) != 'description'})
 
+
 class Diagnostic(WorkItem):
 	'''
 	Doc String of Diagnostic Class
@@ -704,76 +690,23 @@ class Diagnostic(WorkItem):
 	expected_attributes = {"ID": 'ID', "Title": "title", "Variant": 'variant', "Linked Work Items": 'linked_work_items',
 							 "Status": 'status', "Space / Document": 'document', 'Description': 'description'}  # these must be just like how it's outputed from polarian
 	
-	dict_mapping = None
-	
 	link_keywords = {'Component': 'is realized in',
 					 'DetailedDesign': 'is realized in'}
+	
 	linked_attrib_names = {'detailed_designs': 'DetailedDesign',
 						   'components': 'Component'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, status: str = None, components: list = [], detailed_designs: list = [], row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title) and (row):
-			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
+
+		### Running the generalized constructor
+		super().__init__(ID, title, row, status=status, components=components, detailed_designs=detailed_designs)
+
+		### Extra things special to Component class objects only
 		
-		if ID or title:  # direct initiation mode
-			
-			if not title:
-				raise ValueError("'title' attribute is not given")
-			elif not ID:
-				raise ValueError("'id' attribute is not given")
-
-			self.ID = ID
-			self.title = title
-
-		elif row:  # csv initiation mode
-
-			if row == None:
-				raise ValueError("'row' argument is not given")
-
-			# checking that the csv file has all wanted attributes else initiate object
-			for attrib in Diagnostic.expected_attributes.keys():
-				if attrib not in Diagnostic.dict_mapping.keys():
-					raise ValueError(f"The SW_diagnostics.csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {Diagnostics.expected_attributes}")
-				else:
-					exec(f"self.{Diagnostic.expected_attributes[attrib]} = row[{Diagnostic.dict_mapping[attrib]}]")
-
-			# Special treatment for some attributes
-
-			# variant
-			self.variant = self.variant.split(', ')
-
-			# linked work items
-			dict_ = deepcopy(self.linked_work_items)
-			self.linked_work_items = {}
-			tmps = dict_.split(', ')
-			for tmp in tmps:  # remove the numerate
-				colon = tmp.find(': ')
-
-				if colon != -1:
-					key = tmp[:colon]
-					value = tmp[colon+2:]
-					if ' ' in value:
-						value = value[:value.find(' ')]
-
-					if key in self.linked_work_items.keys():
-						self.linked_work_items[key].append(value)
-					else:
-						self.linked_work_items[key] = [value]
-
-				else:
-					if 'unknown' in self.linked_work_items.keys():
-						self.linked_work_items['unknown'].append(tmp)
-					else:
-						self.linked_work_items['unknown'] = [tmp]
-
-		self.workitems_type_set = {name: False for name in Diagnostic.link_keywords.keys()}
-
-		self.linked = {name: [] for name in Diagnostic.link_keywords.keys()}
-
 	@classmethod
 	def filter_object_list(cls, requirements):
 		'''
@@ -797,6 +730,7 @@ class Diagnostic(WorkItem):
 		'''
 		return str({key: value for key, value in self.__dict__.items() if str(key) != 'description'})
 
+
 class DetailedDesign(WorkItem):
 	'''
 	Doc String of DetailedDesign Class
@@ -807,89 +741,31 @@ class DetailedDesign(WorkItem):
 	expected_attributes = {"ID": 'ID', "Title": "title", "Variant": 'variant', "Linked Work Items": 'linked_work_items',
 							 "Severity": 'severity', "Status": 'status', "Space / Document": 'document', 'Description': 'description'}  # these must be just like how it's outputed from polarian
 	
-	dict_mapping = None
-	
 	link_keywords = {'Component': 'has parent',
 					 'Requirement': 'realizes',
 					 'Diagnostic': 'realizes',
 					 'Interface': 'has parent'}
+	
 	linked_attrib_names = {'component': 'Component',
 						   'requirements': 'Requirement',
 						   'diagnostics': 'Diagnostic',
 						   'interfaces': 'Interface'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, requirements: List[Requirement] = None, diagnostics: List[Diagnostic] = None, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, variant: list = [], status: str = None, component: str = None, requirements: list = [], 
+		diagnostics: list = None, interfaces: list = [], row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title or requirements or diagnostics) and (row):
-			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
 		
-		if ID or title or requirements or diagnostics:  # direct initiation mode
-			
-			if not title:
-				raise ValueError("'title' attribute is not given")
-			elif not ID:
-				raise ValueError("'ID' attribute is not given")
-			elif requirements == None:
-				raise ValueError("'requirements' attribute is not given")
-			elif diagnostics == None:
-				raise ValueError("'diagnostics' attribute is not given")
+		### Running the generalized constructor
+		super().__init__(ID, title, row, variant=variant, status=status, component=component, requirements=requirements, 
+						diagnostics=diagnostics, interfaces=interfaces)
 
-			self.ID = ID
-			self.title = title
-			self.requirements = requirements
-			self.diagnostics = diagnostics
-
-		elif row:  # csv initiation mode
-
-			if row == None:
-				raise ValueError("'row' argument is not given")
-
-			# checking that the csv file has all wanted attributes else initiate object
-			for attrib in DetailedDesign.expected_attributes.keys():
-				if attrib not in DetailedDesign.dict_mapping.keys():
-					raise ValueError(f"The detailed_design.csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {DetailedDesign.expected_attributes}")
-				else:
-					exec(f"self.{DetailedDesign.expected_attributes[attrib]} = row[{DetailedDesign.dict_mapping[attrib]}]")
-
-			# Special treatment for some attributes
-
-			# title
-			if '(' in self.title:
-				self.title = self.title[:self.title.find('(')]
-
-			# variant
-			self.variant = self.variant.split(', ')
-
-			# linked work items
-			dict_ = deepcopy(self.linked_work_items)
-			self.linked_work_items = {}
-			tmps = dict_.split(', ')
-			for tmp in tmps:  # remove the numerate
-				colon = tmp.find(': ')
-
-				if colon != -1:
-					key = tmp[:colon]
-					value = tmp[colon+2:]
-					if ' ' in value:
-						value = value[:value.find(' ')]
-
-					if key in self.linked_work_items.keys():
-						self.linked_work_items[key].append(value)
-					else:
-						self.linked_work_items[key] = [value]
-
-				else:
-					if 'unknown' in self.linked_work_items.keys():
-						self.linked_work_items['unknown'].append(tmp)
-					else:
-						self.linked_work_items['unknown'] = [tmp]
-
-		self.workitems_type_set = {name: False for name in DetailedDesign.link_keywords.keys()}
-
-		self.linked = {name: [] for name in DetailedDesign.link_keywords.keys()}
+		### Extra things special to Component class objects only
+		# title adjustments; remove () if it's there
+		if '(' in self.title:
+			self.title = self.title[:self.title.find('(')]
 
 	@classmethod
 	def filter_object_list(cls, requirements):
@@ -926,6 +802,7 @@ class DetailedDesign(WorkItem):
 		'''
 		return str({key: value for key, value in self.__dict__.items() if str(key) != 'description'})
 
+
 class Interface(WorkItem):
 	'''
 	Doc String of Interface Class
@@ -936,77 +813,25 @@ class Interface(WorkItem):
 	expected_attributes = {"ID": 'ID', "Title": "title", "Variant": 'variant', "Linked Work Items": 'linked_work_items',
 							 "Status": 'status', "Space / Document": 'document', 'Description': 'description'}  # these must be just like how it's outputed from polarian
 	
-	dict_mapping = None
-	
 	link_keywords = {'Component': ('is used by', 'is provided by'),
 					 'DetailedDesign': 'is parent of'}
+	
 	linked_attrib_names = {'detailed_designs': 'DetailedDesign',
 						   'components_is_used_by': "Component_is_used_by",
-						   'components_is_provided_by': 'Component_is_provided_by'}
+						   'components_is_provided_by': 'Component_is_provided_by',
+						   'components': 'Component'}
 	##################################################
 
-	def __init__(self, ID: str = None, title: int = None, row: list = []):
+	def __init__(self, ID: str = None, title: int = None, variant: list = [], status: str = None, detailed_designs: list = [],
+				components: list = [], components_is_used_by: list = [], components_is_provided_by: list = [], row: list = []):
 		'''
 		Constructor
 		'''
-		if (ID or title) and (row):
-			raise ValueError("Can't input both attributes and (row) arguments\nObject initiation will only work in direct initiation mode where all attributes are passed at ones\nOR csv reading mode where a csv row and column to title mapping dictionary is passed")
-		
-		if ID or title:  # direct initiation mode
-			
-			if not title:
-				raise ValueError("'title' attribute is not given")
-			elif not ID:
-				raise ValueError("'ID' attribute is not given")
+		### Running the generalized constructor
+		super().__init__(ID, title, row, variant=variant, status=status, components=components, components_is_used_by=components_is_used_by, 
+						components_is_provided_by=components_is_provided_by, detailed_designs=detailed_designs)
 
-			self.ID = ID
-			self.title = title
-
-		elif row:  # csv initiation mode
-
-			if row == None:
-				raise ValueError("'row' argument is not given")
-
-			# checking that the csv file has all wanted attributes else initiate object
-			for attrib in Interface.expected_attributes.keys():
-				if attrib not in Interface.dict_mapping.keys():
-					raise ValueError(f"The SW_interface.csv file doens't have a '{attrib}' column.\nPlease export another csv file from polarian that has these fields: {Interface.expected_attributes}")
-				else:
-					exec(f"self.{Interface.expected_attributes[attrib]} = row[{Interface.dict_mapping[attrib]}]")
-
-			# Special treatment for some attributes
-
-			# variant
-			self.variant = self.variant.split(', ')
-
-
-			# linked work items
-			dict_ = deepcopy(self.linked_work_items)
-			self.linked_work_items = {}
-			tmps = dict_.split(', ')
-			for tmp in tmps:  # remove the numerate
-				colon = tmp.find(': ')
-
-				if colon != -1:
-					key = tmp[:colon]
-					value = tmp[colon+2:]
-					if ' ' in value:
-						value = value[:value.find(' ')]
-
-					if key in self.linked_work_items.keys():
-						self.linked_work_items[key].append(value)
-					else:
-						self.linked_work_items[key] = [value]
-
-				else:
-					if 'unknown' in self.linked_work_items.keys():
-						self.linked_work_items['unknown'].append(tmp)
-					else:
-						self.linked_work_items['unknown'] = [tmp]
-
-		self.workitems_type_set = {name: False for name in Interface.link_keywords.keys()}
-
-		self.linked = {name: [] for name in Interface.link_keywords.keys()}
+		### Extra things special to Component class objects only
 
 	@classmethod
 	def filter_object_list(cls, requirements):
@@ -1412,10 +1237,17 @@ class Block_template(ABC):
 		super().__init__()
 
 	@abstractmethod
-	def csv_ready(self) -> List[List]:
+	def checklist_table(self) -> List[List]:
 		"""
 		meant to create the lists that will be the argument to csv_writer (the rows in the csv file)
 		"""
+		pass
+
+	@abstractmethod
+	def analysis_table(self) -> List[List]:
+		'''
+		
+		'''
 		pass
 
 
@@ -1444,7 +1276,7 @@ class First_block(Block_template):
 		self.SW_release = branch
 
 
-	def csv_ready(self) -> List[List]:
+	def checklist_table(self) -> List[List]:
 		output = []
 		output.append([First_block.description])
 		output.append([First_block.name, self.name+'.c']) #TODO: detect whether component is .h or .c
@@ -1453,6 +1285,12 @@ class First_block(Block_template):
 		output.append([First_block.variant, self.variant])
 		output.append([First_block.SW_release, self.SW_release])
 		return output
+
+	def analysis_table(self) -> None:
+		'''
+		There is no analysis table for the general description block
+		'''
+		pass
 
 	def __str__(self):
 		return str(self.__dict__)
@@ -1760,7 +1598,7 @@ class Second_block(Block_template):
 				path = path[:ind] + '/' + path[ind+1:]
 		return path
 
-	def csv_ready(self):
+	def checklist_table(self):
 		output = []
 		output.append([Second_block.description])
 		output.append([Second_block.report_found, "Yes" if self.report_found else "No"])
@@ -1770,7 +1608,7 @@ class Second_block(Block_template):
 		output.append([Second_block.code_coverage_table])
 		return output
 
-	def csv_ready_internal(self):
+	def analysis_table(self):
 		"""
 		for the link to table part; table of not covered function
 		"""
@@ -1850,7 +1688,7 @@ class Third_block(Second_block):
 				path = path[:ind] + '/' + path[ind+1:]
 		return path
 
-	def csv_ready(self):
+	def checklist_table(self):
 		output = []
 		output.append([Third_block.description])
 		output.append([Third_block.report_found, "Yes" if self.report_found else "No"])
@@ -1860,7 +1698,7 @@ class Third_block(Second_block):
 		output.append([Third_block.table_link])
 		return output
 
-	def csv_ready_internal(self):
+	def analysis_table(self):
 		output = []
 		output.append(["SN", "SW function with dead code from QAC report.", "Comment", "Action"])
 		if self.dead_code_stat:
@@ -2180,25 +2018,29 @@ class Forth_block(Block_template):
 			# if these keywords are found in the block of the code switch, unwanted keyword filter will not run
 			wanted_keywords = ["FUNC(", "LOCAL_INLINE", "STATIC"] #, " if(", " if (", " for(", " for (", " while(", " while ("]  
 			# unwanted keyword filter, will only run if no wanted keywords are found within the code switch block
-			unwanted_keywords = ['SWIT', "UNIT_TESTING", "UNIT_TEST"]
+			unwanted_keywords = ["SWIT_", "UNIT_TESTING", "UNIT_TEST"]
 			filtered = []
 			for ind, code_switch in enumerate(code_switches):
 
 				# getting the corresponding function :) now it's easy
 				code_switches[ind].function = self.get_outside_function(self.func_defs, code_switch.line_num)
 
-				code = "\n".join(code_switch.code)
+				title_and_code = code_switch.title + "\n" + "\n".join(code_switch.code)
 
 				for wanted_keyword in wanted_keywords:
-					if wanted_keyword in code:
+					if wanted_keyword in title_and_code:
 						filtered.append(code_switch)
 						break  # go to next iteration without executing unwanted keyword filter
 				else: 
+					
 					for keyword in unwanted_keywords:
-						if keyword in code:
+						if keyword in title_and_code:
 							break
 					else:
 						filtered.append(code_switch)
+
+						if 'OMD_TYPE_DEF' in code_switch.title:
+							print('This is freaky')
 
 			print(f"Detected {len(filtered)} code switches out of total {len(code_switches)} code switches in the c file")
 			return filtered
@@ -2553,7 +2395,7 @@ class Forth_block(Block_template):
 
 		return func_defs
 
-	def csv_ready(self):
+	def checklist_table(self):
 		output = []
 		output.append([Forth_block.description])
 		output.append([Forth_block.code_switch_stat, "" if self.code_switch_stat is None else "Yes" if self.code_switch_stat else "No"])
@@ -2561,7 +2403,7 @@ class Forth_block(Block_template):
 		output.append([Forth_block.code_switch_table])
 		return output
 
-	def csv_ready_internal(self):
+	def analysis_table(self):
 		output = []
 		output.append(["SN", "SW function with code switch.", "Code switch", "Code switch type", "Comment", "Action"])
 		if self.code_switches:
@@ -2679,7 +2521,6 @@ class Fifth_block(Block_template):
 				end_line_num = start_line_num  # since all // comment ends by starting a newline
 				
 				code_comments.append(CodeComment(comment, start_line_num, end_line_num))
-				print(code_comments[-1])
 
 		return code_comments
 
@@ -2817,14 +2658,14 @@ class Fifth_block(Block_template):
 
 		return result
 
-	def csv_ready(self):
+	def checklist_table(self):
 		output = []
 		output.append([Fifth_block.description])
 		output.append([Fifth_block.code_comment_stat, "" if self.code_comment_stat is None else "Yes" if self.code_comment_stat else "No"])
 		output.append([Fifth_block.code_comment_table])
 		return output
 
-	def csv_ready_internal(self):
+	def analysis_table(self):
 		output = []
 		output.append(["SN", "SW function with code comment.", "Code comment", "Code comment type", "Comment", "Action"])
 		if self.code_comments:
@@ -2978,14 +2819,14 @@ class Sixth_block(Block_template):
 
 		return self.component.detailed_designs
 
-	def csv_ready(self):
+	def checklist_table(self):
 		output = []
 		output.append([Sixth_block.description])
 		output.append([Sixth_block.detailed_design_stat, "" if self.detailed_design_stat is None else "Yes" if self.detailed_design_stat else "No"])
 		output.append([Sixth_block.detailed_design_table])
 		return output
 
-	def csv_ready_internal(self):
+	def analysis_table(self):
 		output = []
 		
 		#### MAIN TABLE	####
@@ -3133,14 +2974,14 @@ class Seventh_block(Block_template):
 		# else:
 		return None
 
-	def csv_ready(self):
+	def checklist_table(self):
 		output = []
 		output.append([Seventh_block.description])
 		output.append([Seventh_block.code_review_stat, "" if self.code_review_stat is None else "No" if self.code_review_stat else "Yes"])
 		output.append([Seventh_block.code_review_table])
 		return output
 
-	def csv_ready_internal(self):
+	def analysis_table(self):
 		output = []
 		output.append(["SN", "Function type", "Function", "Brief", "Covered SW Requirement", "SW req ID", "Issues", "Requirement type", "Requirement brief", "Does the code covers the SW requirements only?"])
 		
@@ -3373,7 +3214,7 @@ def export_csv(blocks: List):
 		
 		print("Exporting Main Analysis Sheet")
 		for block in blocks:
-			for row in block.csv_ready():
+			for row in block.checklist_table():
 				csv_writer.writerow(row)
 			csv_writer.writerow([])
 			csv_writer.writerow([])
@@ -3385,7 +3226,7 @@ def export_csv(blocks: List):
 		
 		print("Exporting Analysis tables Sheet")
 		for block in blocks[1:]:
-			for row in block.csv_ready_internal():
+			for row in block.analysis_table():
 				csv_writer.writerow(row)
 			csv_writer.writerow([])
 			csv_writer.writerow([])
@@ -3396,7 +3237,7 @@ def export_csv(blocks: List):
 		with open(f"output/csv/{blocks[0].component.true_title}/inner_tables/{block.name}_{blocks[0].name}_{blocks[0].variant}.csv", mode='w', encoding='utf-8') as csv_file:
 			csv_writer = csv.writer(csv_file, delimiter=',', lineterminator='\n')
 			print(f"Exporting detail table for {block.name}")
-			for row in block.csv_ready_internal():
+			for row in block.analysis_table():
 				csv_writer.writerow(row)
 
 
@@ -3431,13 +3272,13 @@ if __name__ == '__main__':
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
 	DOCUMENT_CHOOSEN_NUMBER = None  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
-	MANUAL_CAT3_MODE_INPUT = None
+	MANUAL_CAT3_MODE_INPUT = 'base+'
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "SftyAcEvln"
-	CAT_num = 1
+	component_name = "init_task"
+	CAT_num = 3
 	variant = 'Base+'
 	branch = 'P330'
 
