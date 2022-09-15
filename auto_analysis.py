@@ -1830,6 +1830,11 @@ class Forth_block(Block_template):
 								c_file += line.strip()
 								c_file += '\n'
 								explored.add(match)
+
+				if '#define' not in c_file:
+					print("In searching for enabled/disabled stat for code switches, No #include read, thus no #defines read!")
+					return code_switches
+
 				c_file += '\n\n'
 				self.c_file = c_file
 			#########################################################
@@ -1877,10 +1882,8 @@ class Forth_block(Block_template):
 			try:  # assumes output are only numbers seperated by \r, \n, ' '
 				if result != '':
 					enabled_code_switches_indexes = [int(res.strip()) for res in result.split('\n')]
-			
 				else:
-					print("In searching for enabled/disabled stat for code switches, No #include read, thus no #defines read!")
-					return code_switches
+					enabled_code_switches_indexes = []
 			
 			except Exception:  # probably an error arrised
 				print(result)
@@ -2038,9 +2041,6 @@ class Forth_block(Block_template):
 							break
 					else:
 						filtered.append(code_switch)
-
-						if 'OMD_TYPE_DEF' in code_switch.title:
-							print('This is freaky')
 
 			print(f"Detected {len(filtered)} code switches out of total {len(code_switches)} code switches in the c file")
 			return filtered
@@ -3271,14 +3271,14 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
-	MANUAL_CAT3_MODE_INPUT = None
+	DOCUMENT_CHOOSEN_NUMBER = None  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	MANUAL_CAT3_MODE_INPUT = 'base+'
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "idp"
-	CAT_num = 1
+	component_name = "init_task"
+	CAT_num = 3
 	variant = 'Base+'
 	branch = 'P330'
 
