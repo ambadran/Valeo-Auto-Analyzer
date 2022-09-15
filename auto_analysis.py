@@ -22,7 +22,7 @@ __version__ = '0.1.0'
 
 ########################################################################################################################################
 
-
+print('lskjflkdsjlkfjdslkfjdskfjlkdsjflskdjflkjds')
 
 ########################################################################################################################################
 ### imports
@@ -3271,14 +3271,14 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = None  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
-	MANUAL_CAT3_MODE_INPUT = 'base+'
+	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "init_task"
-	CAT_num = 3
+	component_name = "idp"
+	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
 
