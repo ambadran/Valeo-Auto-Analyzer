@@ -67,7 +67,7 @@ DEBUG_FUNC_DEFS = False
 
 
 ########################################################################################################################################
-# database
+# Database
 
 class WorkItem(ABC):
 	'''
@@ -319,6 +319,7 @@ class WorkItem(ABC):
 		'''
 		for workitem in self.link_keywords.keys():
 			self.link(eval(workitem))
+
 
 class Component(WorkItem):
 	'''
@@ -1239,9 +1240,13 @@ class Memory:
 
 
 ########################################################################################################################################
-# BLOCKS
+# Blocks
 
-class Block_template(ABC):
+class BlockTemplate(ABC):
+	'''
+	Block Template Parent class for all blocks
+	'''
+
 	def __init__(self, component):
 		self.component = component
 		super().__init__()
@@ -1261,7 +1266,7 @@ class Block_template(ABC):
 		pass
 
 
-class First_block(Block_template):
+class FirstBlock(BlockTemplate):
 	"""
 	1. Category of SW module for detailed software analysis.	
 	"""
@@ -1281,19 +1286,19 @@ class First_block(Block_template):
 		self.name = component.title
 		self.CAT_num = component.CAT_num
 		#TODO: implement update function at the end
-		self.analysis_status_formats = First_block.analysis_status_formats_list[1]  # In Progress
+		self.analysis_status_formats = FirstBlock.analysis_status_formats_list[1]  # In Progress
 		self.variant = variant
 		self.SW_release = branch
 
 
 	def checklist_table(self) -> List[List]:
 		output = []
-		output.append([First_block.description])
-		output.append([First_block.name, self.name+'.c']) #TODO: detect whether component is .h or .c
-		output.append([First_block.CAT_num, self.CAT_num])
-		output.append([First_block.analysis_status_formats, self.analysis_status_formats])
-		output.append([First_block.variant, self.variant])
-		output.append([First_block.SW_release, self.SW_release])
+		output.append([FirstBlock.description])
+		output.append([FirstBlock.name, self.name+'.c']) #TODO: detect whether component is .h or .c
+		output.append([FirstBlock.CAT_num, self.CAT_num])
+		output.append([FirstBlock.analysis_status_formats, self.analysis_status_formats])
+		output.append([FirstBlock.variant, self.variant])
+		output.append([FirstBlock.SW_release, self.SW_release])
 		return output
 
 	def analysis_table(self) -> None:
@@ -1303,10 +1308,13 @@ class First_block(Block_template):
 		pass
 
 	def __str__(self):
+		'''
+		string representatoin of First_block
+		'''
 		return str(self.__dict__)
 
 
-class Second_block(Block_template):
+class SecondBlock(BlockTemplate):
 	"""
 	2. Code coverage analysis.	
 	"""
@@ -1610,12 +1618,12 @@ class Second_block(Block_template):
 
 	def checklist_table(self):
 		output = []
-		output.append([Second_block.description])
-		output.append([Second_block.report_found, "Yes" if self.report_found else "No"])
+		output.append([SecondBlock.description])
+		output.append([SecondBlock.report_found, "Yes" if self.report_found else "No"])
 		paths = " , ".join([f"{self.report_path}/{file}" for file in self.sole_files])
-		output.append([Second_block.report_path, "" if not self.report_path else paths])
-		output.append([Second_block.code_coverage_stat, "" if self.code_coverage_stat is None else "Yes" if self.code_coverage_stat == 1.0 else "No"])
-		output.append([Second_block.code_coverage_table])
+		output.append([SecondBlock.report_path, "" if not self.report_path else paths])
+		output.append([SecondBlock.code_coverage_stat, "" if self.code_coverage_stat is None else "Yes" if self.code_coverage_stat == 1.0 else "No"])
+		output.append([SecondBlock.code_coverage_table])
 		return output
 
 	def analysis_table(self):
@@ -1635,7 +1643,7 @@ class Second_block(Block_template):
 		return output
 
 
-class Third_block(Second_block):
+class ThirdBlock(BlockTemplate):
 	"""
 	3. Dead code analysis.	
 	"""
@@ -1700,12 +1708,12 @@ class Third_block(Second_block):
 
 	def checklist_table(self):
 		output = []
-		output.append([Third_block.description])
-		output.append([Third_block.report_found, "Yes" if self.report_found else "No"])
+		output.append([ThirdBlock.description])
+		output.append([ThirdBlock.report_found, "Yes" if self.report_found else "No"])
 		paths = " , ".join([f"{self.report_path}/{file}" for file in self.sole_files])
-		output.append([Third_block.report_path, "" if not self.report_path else paths])
-		output.append([Third_block.dead_code_stat, "" if self.dead_code_stat is None else "Yes" if not self.dead_code_stat else "No"])
-		output.append([Third_block.table_link])
+		output.append([ThirdBlock.report_path, "" if not self.report_path else paths])
+		output.append([ThirdBlock.dead_code_stat, "" if self.dead_code_stat is None else "Yes" if not self.dead_code_stat else "No"])
+		output.append([ThirdBlock.table_link])
 		return output
 
 	def analysis_table(self):
@@ -1716,7 +1724,7 @@ class Third_block(Second_block):
 		return output
 
 
-class Forth_block(Block_template):
+class ForthBlock(BlockTemplate):
 	"""
 	4. Code switches identification analysis.	
 	"""
@@ -2004,7 +2012,7 @@ class Forth_block(Block_template):
 		lines = self.code_file.split("\n")
 		for line_num, line in enumerate(lines):
 			for term in terms_to_search_for:
-				if term in Forth_block.KILL_ALL_COMMENTS(line, passive_mode=True):  # code switch term found in a code line
+				if term in ForthBlock.KILL_ALL_COMMENTS(line, passive_mode=True):  # code switch term found in a code line
 
 					# getting the index of the line with the next #endif or #elif or #else -> getting the block
 					opennings_count = 1
@@ -2013,13 +2021,13 @@ class Forth_block(Block_template):
 
 						# counting openings
 						for opening in opennings:
-							if opening in Forth_block.KILL_ALL_COMMENTS(line2, passive_mode=True):
+							if opening in ForthBlock.KILL_ALL_COMMENTS(line2, passive_mode=True):
 								opennings_count += 1
 								break
 
 						# counting closings
 						for closing in closings:
-							if closing in Forth_block.KILL_ALL_COMMENTS(line2, passive_mode=True):
+							if closing in ForthBlock.KILL_ALL_COMMENTS(line2, passive_mode=True):
 								closings_count += 1
 								break
 
@@ -2039,10 +2047,10 @@ class Forth_block(Block_template):
 					code_lines = lines[line_num:end_line_num+1]  # block of code switch, from #if/ifndef/ifdef to #else/elif/endif
 
 					# filtering comments from first line ( the one that has the opening statement, e.g- #IF)
-					title = Forth_block.KILL_ALL_COMMENTS(code_lines[0]).strip()
+					title = ForthBlock.KILL_ALL_COMMENTS(code_lines[0]).strip()
 					
 					# filtering comments from last line ( the one that has the opening statement, e.g- #IF)
-					ending = Forth_block.KILL_ALL_COMMENTS(code_lines[-1]).strip()
+					ending = ForthBlock.KILL_ALL_COMMENTS(code_lines[-1]).strip()
 
 					function = 'Not assigned yet'
 
@@ -2166,6 +2174,7 @@ class Forth_block(Block_template):
 
 	def filter_backslash(self, path):
 		"""
+		Main use is to let python read paths to a file
 		input path as string with backslashes 
 		return path with backslashes converted to forwardslashes
 		"""
@@ -2381,7 +2390,7 @@ class Forth_block(Block_template):
 		for fn, start_line_num, end_line_num, body in func_defs_raw:
 			
 			# KILLING ALL COMMENTS >:( 
-			fn = Forth_block.KILL_ALL_COMMENTS(fn).strip()
+			fn = ForthBlock.KILL_ALL_COMMENTS(fn).strip()
 			fn = fn.replace('#endif', '')
 			
 			# # for debugging
@@ -2505,10 +2514,10 @@ class Forth_block(Block_template):
 
 	def checklist_table(self):
 		output = []
-		output.append([Forth_block.description])
-		output.append([Forth_block.code_switch_stat, "" if self.code_switch_stat is None else "Yes" if self.code_switch_stat else "No"])
-		output.append([Forth_block.code_switch_necessity, "" if self.code_switch_necessity is None else "Yes" if self.code_switch_necessity else "No"])
-		output.append([Forth_block.code_switch_table])
+		output.append([ForthBlock.description])
+		output.append([ForthBlock.code_switch_stat, "" if self.code_switch_stat is None else "Yes" if self.code_switch_stat else "No"])
+		output.append([ForthBlock.code_switch_necessity, "" if self.code_switch_necessity is None else "Yes" if self.code_switch_necessity else "No"])
+		output.append([ForthBlock.code_switch_table])
 		return output
 
 	def analysis_table(self):
@@ -2522,7 +2531,7 @@ class Forth_block(Block_template):
 		return output
 
 
-class Fifth_block(Block_template):
+class FifthBlock(BlockTemplate):
 	"""
 	5. Code comment for un-required code analysis.		
 	"""
@@ -2768,9 +2777,9 @@ class Fifth_block(Block_template):
 
 	def checklist_table(self):
 		output = []
-		output.append([Fifth_block.description])
-		output.append([Fifth_block.code_comment_stat, "" if self.code_comment_stat is None else "Yes" if self.code_comment_stat else "No"])
-		output.append([Fifth_block.code_comment_table])
+		output.append([FifthBlock.description])
+		output.append([FifthBlock.code_comment_stat, "" if self.code_comment_stat is None else "Yes" if self.code_comment_stat else "No"])
+		output.append([FifthBlock.code_comment_table])
 		return output
 
 	def analysis_table(self):
@@ -2789,7 +2798,7 @@ class Fifth_block(Block_template):
 		return output
 
 
-class Sixth_block(Block_template):
+class SixthBlock(BlockTemplate):
 	"""
 	6. Detailed design contained function analysis.	
 	"""
@@ -2929,9 +2938,9 @@ class Sixth_block(Block_template):
 
 	def checklist_table(self):
 		output = []
-		output.append([Sixth_block.description])
-		output.append([Sixth_block.detailed_design_stat, "" if self.detailed_design_stat is None else "Yes" if self.detailed_design_stat else "No"])
-		output.append([Sixth_block.detailed_design_table])
+		output.append([SixthBlock.description])
+		output.append([SixthBlock.detailed_design_stat, "" if self.detailed_design_stat is None else "Yes" if self.detailed_design_stat else "No"])
+		output.append([SixthBlock.detailed_design_table])
 		return output
 
 	def analysis_table(self):
@@ -3014,7 +3023,7 @@ class Sixth_block(Block_template):
 		return output
 
 
-class Seventh_block(Block_template):
+class SeventhBlock(BlockTemplate):
 	"""
 	7. Code review against SW requirements analysis.	
 	"""
@@ -3084,9 +3093,9 @@ class Seventh_block(Block_template):
 
 	def checklist_table(self):
 		output = []
-		output.append([Seventh_block.description])
-		output.append([Seventh_block.code_review_stat, "" if self.code_review_stat is None else "No" if self.code_review_stat else "Yes"])
-		output.append([Seventh_block.code_review_table])
+		output.append([SeventhBlock.description])
+		output.append([SeventhBlock.code_review_stat, "" if self.code_review_stat is None else "No" if self.code_review_stat else "Yes"])
+		output.append([SeventhBlock.code_review_table])
 		return output
 
 	def analysis_table(self):
@@ -3276,28 +3285,28 @@ def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_rep
 
 	blocks = []
 	if component.CAT_num == 1:	
-		blocks.append(First_block(component, variant, branch))
-		blocks.append(Second_block(blocks[0]))
-		blocks.append(Third_block(blocks[0]))
-		blocks.append(Forth_block(blocks[0]))
-		blocks.append(Fifth_block(blocks[0], blocks[3]))
-		blocks.append(Sixth_block(blocks[0], blocks[4]))
-		blocks.append(Seventh_block(blocks[0], blocks[4], blocks[5]))
+		blocks.append(FirstBlock(component, variant, branch))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
+		blocks.append(SixthBlock(blocks[0], blocks[4]))
+		blocks.append(SeventhBlock(blocks[0], blocks[4], blocks[5]))
 
 	elif component.CAT_num == 2:
-		blocks.append(First_block(component, variant, branch))
-		blocks.append(Second_block(blocks[0]))
-		blocks.append(Third_block(blocks[0]))
-		blocks.append(Forth_block(blocks[0]))
-		blocks.append(Fifth_block(blocks[0], blocks[3]))
-		blocks.append(Sixth_block(blocks[0], blocks[4]))
+		blocks.append(FirstBlock(component, variant, branch))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
+		blocks.append(SixthBlock(blocks[0], blocks[4]))
 
 	elif component.CAT_num == 3:
-		blocks.append(First_block(component, variant, branch))
-		blocks.append(Second_block(blocks[0]))
-		blocks.append(Third_block(blocks[0]))
-		blocks.append(Forth_block(blocks[0]))
-		blocks.append(Fifth_block(blocks[0], blocks[3]))
+		blocks.append(FirstBlock(component, variant, branch))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
 
 	print("Done creating all Blocks\n")
 
