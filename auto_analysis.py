@@ -20,7 +20,7 @@ The Analysis step is made of 6 steps:
 # File Attributes
 __all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory']
 __author__ = 'AbdulRahman Mohsen Badran'
-__version__ = '0.1.0'
+__version__ = '0.2.1'
 
 ########################################################################################################################################
 
@@ -1072,7 +1072,7 @@ def successor_general(variant, branch, search_key):
 	
 	return successor
 
-def dfs(initial, goal_test, successor):
+def DFS(initial, goal_test, successor):
 	"""
 	searches path_to_reports for the correct {search_key} report
 	"""
@@ -1182,6 +1182,9 @@ class Func:
 			return True
 
 	def __str__(self):
+		'''
+		str for Func
+		'''
 		return str({key: value for key, value in self.__dict__.items() if str(key) != "body"})
 
 @dataclass
@@ -1521,7 +1524,7 @@ class Second_block(Block_template):
 		goal_test = goal_test_general(self.component.true_title)
 		successor = successor_general(self.variant, self.branch, self.search_key)
 
-		report_path = dfs(path, goal_test, successor)
+		report_path = DFS(path, goal_test, successor)
 
 		if report_path == None:
 			print(f"Didn't find {self.component.true_title} {self.search_key} report\n\n")
@@ -1734,7 +1737,8 @@ class Forth_block(Block_template):
 		if self.code_file:  # code file is found
 			
 			self.code_switches_all = self.get_code_switches_all()
-			self.func_defs = self.get_all_funcs(self.code_file_both, self.code_switches_all)
+			self.func_defs = self.get_all_funcs(self.code_file, self.code_switches_all)
+			print(f"Detected {len(self.func_defs)} functions implemented in code")
 			
 			# for debugging func_defs
 			if DEBUG_FUNC_DEFS:
@@ -1742,9 +1746,7 @@ class Forth_block(Block_template):
 				for func in self.func_defs:
 					print(func)
 
-			self.code_switches_all = self.assign_enabled_stat(self.code_switches_all)
 			self.code_switches = self.get_code_switches(self.code_switches_all)
-			print(f"Detected {len(self.func_defs)} functions implemented in code")
 
 
 			self.code_switch_stat = not not self.code_switches
@@ -1765,13 +1767,6 @@ class Forth_block(Block_template):
 		hamza told me don't do it, FGL is responsible for it
 		"""
 		pass
-
-	def filter_comment(self, code):
-		comment_ind = code.find('/*')
-		if comment_ind != -1:
-			return code[:code.find("/*")+1]
-		else:
-			return code
 
 	def get_outside_function(self, func_defs: List[Func], line_num: int) -> str:
 		"""
@@ -1903,7 +1898,7 @@ class Forth_block(Block_template):
 			return code_switches
 		
 	@staticmethod
-	def KILL_ALL_COMMENTS(text: str) -> str:
+	def KILL_ALL_COMMENTS(text: str, passive_mode = False) -> str:
 		'''
 		takes a text as input and removes all comments from it
 		'''
@@ -1938,68 +1933,57 @@ class Forth_block(Block_template):
 
 						else:
 							line_num = text[:ind+3].count('\n')
-							raise ValueError(f"A comment is openned and never closed\nLook at line {line_num}")
+							if passive_mode:
+								return text[:text.find(openner)]
+							else:
+								raise ValueError(f"A comment is openned and never closed\nLook at line {line_num} {text}")
 						break
 
 		return text
 
-	@staticmethod
-	def KILL_ALL_CODE_SWITCHES(text: str) -> str:
+	def KILL_ALL_CODE_SWITCHES(self, text: str = None, code_switches: List[CodeSwitch] = None) -> str:
 		'''
-		STILL IN DEVELOPMENT!!
-		#TODO:
-		takes a text as input and removes all code switches from it
+		:text: if text is None it performs this action on self.code_file
+				aka the actual component c file
+				else: it performs the algorithm on the argument 'text'
+		:code_switches: if code_switches is None it assumes the code_switches are self.code_switches_all
+						aka the actual component c file code switches
+						else: it performs the algorithm on the argument 'code_switches'
 
-		# for testing
-		text = """ lsjdl#if(kfj 
-
-		lksjfdlkj
-		asdlkjflksjdfkj(asdfasdf((ljsdflkjdf))adsfa
-
-		dsf)v dsjflk jv#if  $_lsj_dv(vlkfj vlkjskdfj k)j"""
-		print(Forth_block.KILL_ALL_CODE_SWITCHES(text))
-
+		:returns: text with removed disabled code switches with their content
+							removed enabled code switch titles and their #endif
+							according to the 'code_switches' given
 		'''
-		# removing #endif
-		text = text.replace('#endif', '')
+		if text == None:
+			text = deepcopy(self.code_file)
+		if code_switches == None:
+			code_switches = self.code_switches_all
 
-		# removing #else
-		text = text.replace('#else', '')
+		text_lines = text.split('\n')
+		output_lines = []
 
-		#### removing ALL types of #if and #elif
-		# finding all #ifs
-		if_pattern = r"(#if|#elif|#ifdef|#ifndef) *([\(\w\_]*\)?)"
-		while '#if' in text:
-			match_object = next(re.finditer(if_pattern, text))
-			spans = match_object.span()
-			match = match_object.groups()
+		# this algorithm depnds on a sorted list
+		code_switches.sort(key=lambda x: x.line_num)
+		current_end_line_num = 0
+		for code_switch in code_switches:
 			
-			# Now there are possibilites
-			# 1 - #if nothing, empty condition
-			if match[1] == '':
-				# just remove the #if only
-				text = text.replace(text[spans[0] : spans[1]], '')
+			if code_switch.is_enabled:
+				# enabled code switch, add until current code switch title (NOT INCLUDED), then add body, then set next start line number to line after current code switch ending
+				output_lines.extend(text_lines[current_end_line_num:code_switch.line_num-1])  # from previous code switch ending to openning of current code switch
+				output_lines.extend(text_lines[code_switch.line_num:code_switch.end_line_num-1])  # the body of the enabled code switch
+				current_end_line_num = code_switch.end_line_num  # assigning starting line number for the next iteration, after the closing of this code switch
+			
+			else:
+				# disabled code switch, remove the title, the body and the #endif
+				output_lines.extend(text_lines[current_end_line_num:code_switch.line_num-1])  # from previous code switch ending to openning of current code switch
+				current_end_line_num = code_switch.end_line_num  # assigning starting line number for the next iteration, after the closing of this code switch
 
-			# 2- #if (condition), aka condition in brackets, aka could take more than one line
-			#		thus, must implement a bracket tracking algorithm
-			elif '(' in match[1]:
-				open_brack_count = 0
-				close_brack_count = 0
-				for ind, char in enumerate(text[spans[0]:]):
-					if char == '(':
-						open_brack_count += 1
-					if char == ')':
-						close_brack_count += 1
+		# adding the rest of the code file
+		output_lines.extend(text_lines[current_end_line_num:])
 
-					if open_brack_count != 0 and (open_brack_count == close_brack_count):
-						# found end of bracket
-						text = text.replace(text[spans[0] : spans[0]+ind], '')
-						break
-				else:
-					print("didn't find a ()")
-					break
+		output = "\n".join(output_lines)
 
-		return text
+		return output
 		
 	def get_code_switches_all(self):
 		'''
@@ -2015,7 +1999,7 @@ class Forth_block(Block_template):
 		lines = self.code_file.split("\n")
 		for line_num, line in enumerate(lines):
 			for term in terms_to_search_for:
-				if term in self.filter_comment(line):  # code switch term found in a code line
+				if term in Forth_block.KILL_ALL_COMMENTS(line, passive_mode=True):  # code switch term found in a code line
 
 					# getting the index of the line with the next #endif or #elif or #else -> getting the block
 					opennings_count = 1
@@ -2024,13 +2008,13 @@ class Forth_block(Block_template):
 
 						# counting openings
 						for opening in opennings:
-							if opening in self.filter_comment(line2):
+							if opening in Forth_block.KILL_ALL_COMMENTS(line2, passive_mode=True):
 								opennings_count += 1
 								break
 
 						# counting closings
 						for closing in closings:
-							if closing in self.filter_comment(line2):
+							if closing in Forth_block.KILL_ALL_COMMENTS(line2, passive_mode=True):
 								closings_count += 1
 								break
 
@@ -2068,6 +2052,9 @@ class Forth_block(Block_template):
 
 		if not code_switches:  # didn't find any code switches
 			return None
+
+		# finding enabled_disabled stat of every code switch
+		code_switches = self.assign_enabled_stat(code_switches)
 
 		return code_switches
 
@@ -2237,7 +2224,7 @@ class Forth_block(Block_template):
 
 		return recurse(options)
 
-	def get_all_funcs(self, code, code_switches) -> List[Func]:
+	def get_all_funcs(self, code, code_switches, without_code_switch_test = True) -> List[Func]:
 		"""
 		This function implements an intricate algorithm to detect all C functions, capture them
 		and parse them into a Func dataclass, defining all its attributes.
@@ -2246,16 +2233,19 @@ class Forth_block(Block_template):
 			1- FUNCTION DEF DETECTION ALGORITHM
 			2- FUNCTION DEF CAPTURING ALGORITHM
 			3- FUNCTION DEF PARSING ALGORITHM
+
+		:param without_code_switch_test: this is by default enabled, it tests the output of func_defs list from a 
+										normal c file compared to the output of func_defs output of a file without 
+										any code switches.
 		"""
 		func_defs = []
 
-		code = code[0]
 		code_lines = code.split('\n')
 
 		func_defs_raw = []
 
 		########################################################################################
-		# Detect and Capture Algorithm
+		# (1) & (2) DETECT AND CAPTURE ALGORITHM
 		unwanted_pattern = r'[ \t\n](if|for|while|switch|#if|#elif|#ifdef|#ifndef)[\( \t\n]'
 		code_switch_trigger_words = ['#if', '#ifndef', '#ifdef', '#elif', '#else', '#endif']
 		for ind, char in enumerate(code):
@@ -2463,28 +2453,48 @@ class Forth_block(Block_template):
 			func_defs.append(func_def)
 
 		# finding variant of func def, look for code switch with (ASM/PSM)
-		print("NOTE: WHEN FINDING VARIANT OF FUNC DEF IN CODE, PSM IS HARDCODED AS BASE+ AND ASM IS HARDCODED AS BASE-")
-		mapping = {True: '+', False: '-'}
-		if code_switches:
-			for ind, func in enumerate(func_defs):
-				for code_switch in code_switches:
-					if func.start_line_num > code_switch.line_num and func.start_line_num <= code_switch.end_line_num:
-						# this function is inside this codeswitch
-						
-						# check if this is an ASM/PSM code switch
-						base_check = re.search(r"([AaPp][Ss][Mm]) *={0,2} *(\d*)", code_switch.title)
-						if base_check:
-							base_type, value = base_check.groups()
-							if value != '': 
-								v = not ('PSM' in base_type or 'psm' in base_type) ^ (not not int(value))
-							else:
-								v = ('PSM' in base_type or 'psm' in base_type)
-							func_defs[ind].variant.append(f"Base{mapping[v]}")
-							break
-						
-				else:
-					# function is not inside any code switch, thus thus function is not bound to a specific variant, thus depend on component whether it's both not not
-					func_defs[ind].variant.extend(self.component.variant)
+		if without_code_switch_test:
+			print("NOTE: WHEN FINDING VARIANT OF FUNC DEF IN CODE, PSM IS HARDCODED AS BASE+ AND ASM IS HARDCODED AS BASE-")
+			mapping = {True: '+', False: '-'}
+			if code_switches:
+				for ind, func in enumerate(func_defs):
+					for code_switch in code_switches:
+						if func.start_line_num > code_switch.line_num and func.start_line_num <= code_switch.end_line_num:
+							# this function is inside this codeswitch
+							
+							# check if this is an ASM/PSM code switch
+							base_check = re.search(r"([AaPp][Ss][Mm]) *={0,2} *(\d*)", code_switch.title)
+							if base_check:
+								base_type, value = base_check.groups()
+								if value != '': 
+									v = not ('PSM' in base_type or 'psm' in base_type) ^ (not not int(value))
+								else:
+									v = ('PSM' in base_type or 'psm' in base_type)
+								func_defs[ind].variant.append(f"Base{mapping[v]}")
+								break
+							
+					else:
+						# function is not inside any code switch, thus thus function is not bound to a specific variant, thus depend on component whether it's both not not
+						func_defs[ind].variant.extend(self.component.variant)
+		########################################################################################
+
+
+		########################################################################################
+		# Executing this same algorithm for the c file without code switches (remove disabled code switch content 
+		#							as well as all code switche statements; titles and endings, e.g #if, #endif)
+		if without_code_switch_test:
+			
+			code_without_code_switches = self.KILL_ALL_CODE_SWITCHES()
+			
+			func_defs_without_code_switches = self.get_all_funcs(code_without_code_switches, code_switches=None, without_code_switch_test=False)
+
+			names_in_with_code_switches = [func.name for func in func_defs]
+			for func in func_defs_without_code_switches:
+				if func.name not in names_in_with_code_switches:
+					print(f"\nDetected a function {func.name} that could only be detected after removing code switches from C file!!!\nThis could be due to #if/n/def before function initiation block\n")
+					func_defs.append(func)
+		########################################################################################
+
 
 		return func_defs
 
@@ -3380,9 +3390,9 @@ if __name__ == '__main__':
 	path_to_reports = r"W:\DE\ERL1\RnD\serv\JBUILD\VW_MEB"
 
 	path_to_tcc = 'C:\\tcc'
-	
 
 	### Run the script
 	main(homedir, component_name, CAT_num, branch, variant, paths_to_code, path_to_reports, path_to_tcc)
+
 ########################################################################################################################################
 
