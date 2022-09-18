@@ -861,7 +861,7 @@ class Interface(WorkItem):
 
 
 ########################################################################################################################################
-# data structures
+# Data Structures
 
 class Node:
 	def __init__(self, state, parent):
@@ -912,6 +912,8 @@ class Stack:
 
 def goal_test_general(wanted_goal: Component.true_title):
 	"""
+	argument of DFS/BFS/A* Algorithms to test if goal is reached or not
+
 	:param wanted_goal: should be of type Component, self.true_title
 	defining a first class function so that we can use this for multiple applications
 	used in searching for the right search_key file
@@ -935,6 +937,9 @@ def goal_test_general(wanted_goal: Component.true_title):
 	return goal_test
 
 def successor_general(variant, branch, search_key):
+	'''
+	Argument of DFS/BFS/A* Algorithms to return next possible moves
+	'''
 
 	def successor(current_state) -> list:
 		"""
@@ -1074,7 +1079,7 @@ def successor_general(variant, branch, search_key):
 
 def DFS(initial, goal_test, successor):
 	"""
-	searches path_to_reports for the correct {search_key} report
+	Generic Implementation of Depth-First-Search Algorithm
 	"""
 	frontier = Stack()
 	frontier.push(Node(initial, None))
