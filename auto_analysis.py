@@ -14,6 +14,8 @@ The Analysis step is made of 6 steps:
 	5- Detailed Design Analysis
 	6- Code Review
 '''
+
+
 ########################################################################################################################################
 # File Attributes
 __all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory']
@@ -317,7 +319,6 @@ class WorkItem(ABC):
 		'''
 		for workitem in self.link_keywords.keys():
 			self.link(eval(workitem))
-
 
 class Component(WorkItem):
 	'''
@@ -903,6 +904,7 @@ class Stack:
 	def __repr__(self):
 		return repr(self._container)
 ########################################################################################################################################
+
 
 
 ########################################################################################################################################
@@ -1941,6 +1943,64 @@ class Forth_block(Block_template):
 
 		return text
 
+	@staticmethod
+	def KILL_ALL_CODE_SWITCHES(text: str) -> str:
+		'''
+		STILL IN DEVELOPMENT!!
+		#TODO:
+		takes a text as input and removes all code switches from it
+
+		# for testing
+		text = """ lsjdl#if(kfj 
+
+		lksjfdlkj
+		asdlkjflksjdfkj(asdfasdf((ljsdflkjdf))adsfa
+
+		dsf)v dsjflk jv#if  $_lsj_dv(vlkfj vlkjskdfj k)j"""
+		print(Forth_block.KILL_ALL_CODE_SWITCHES(text))
+
+		'''
+		# removing #endif
+		text = text.replace('#endif', '')
+
+		# removing #else
+		text = text.replace('#else', '')
+
+		#### removing ALL types of #if and #elif
+		# finding all #ifs
+		if_pattern = r"(#if|#elif|#ifdef|#ifndef) *([\(\w\_]*\)?)"
+		while '#if' in text:
+			match_object = next(re.finditer(if_pattern, text))
+			spans = match_object.span()
+			match = match_object.groups()
+			
+			# Now there are possibilites
+			# 1 - #if nothing, empty condition
+			if match[1] == '':
+				# just remove the #if only
+				text = text.replace(text[spans[0] : spans[1]], '')
+
+			# 2- #if (condition), aka condition in brackets, aka could take more than one line
+			#		thus, must implement a bracket tracking algorithm
+			elif '(' in match[1]:
+				open_brack_count = 0
+				close_brack_count = 0
+				for ind, char in enumerate(text[spans[0]:]):
+					if char == '(':
+						open_brack_count += 1
+					if char == ')':
+						close_brack_count += 1
+
+					if open_brack_count != 0 and (open_brack_count == close_brack_count):
+						# found end of bracket
+						text = text.replace(text[spans[0] : spans[0]+ind], '')
+						break
+				else:
+					print("didn't find a ()")
+					break
+
+		return text
+		
 	def get_code_switches_all(self):
 		'''
 		get ALL code switches
@@ -2179,7 +2239,13 @@ class Forth_block(Block_template):
 
 	def get_all_funcs(self, code, code_switches) -> List[Func]:
 		"""
-		finds func declaration block and return them all
+		This function implements an intricate algorithm to detect all C functions, capture them
+		and parse them into a Func dataclass, defining all its attributes.
+
+		The main algorithm is made out of 3 steps:
+			1- FUNCTION DEF DETECTION ALGORITHM
+			2- FUNCTION DEF CAPTURING ALGORITHM
+			3- FUNCTION DEF PARSING ALGORITHM
 		"""
 		func_defs = []
 
@@ -2189,23 +2255,42 @@ class Forth_block(Block_template):
 		func_defs_raw = []
 
 		########################################################################################
-		# finding and capturing function declaration code
+		# Detect and Capture Algorithm
 		unwanted_pattern = r'[ \t\n](if|for|while|switch|#if|#elif|#ifdef|#ifndef)[\( \t\n]'
+		code_switch_trigger_words = ['#if', '#ifndef', '#ifdef', '#elif', '#else', '#endif']
 		for ind, char in enumerate(code):
 
-			# finding functions
+
+			##########################################################################################
+			#### (1) FUNCTION DEF DETECTION ALGORITHM
+			# Captures all code blocks, if, for, while, etc..
 			possibly_a_func = False
 			if char == "{": ## { detected
 				# test if this really is a function:
 				comment_flag = False
+				code_switch_flag = False
 				is_there_comment = False
 				for ind2, char2 in enumerate(code[:ind][::-1]):
 					
+					# ignoring code switches, activating code_switch_flag
+					if char2 == 'f':  # could be the start of a code switch
+						# dealing func declaration code that's inside a code switch see VW-MEB project, Branch Q330, Component Idp.c, line: 1696
+						# checking if it's an #endif
+						if code[:ind][::-1][ind2:ind2+6] == '#endif'[::-1]:
+							code_switch_flag = True
+
+					# deactivating code_switch_flag
+					if char2 == '#':
+						code_switch_flag = False
+						continue
+
+					# ignoring comments
 					if char2 == '/':
 						comment_flag = not comment_flag
 						continue
 
-					if char2 == ' ' or char2 == '\n' or comment_flag:
+					# ignoring spaces and newlines
+					if char2 == ' ' or char2 == '\n' or comment_flag or code_switch_flag:
 						continue
 					elif char2 == ')':
 						#  { detected with ) directly behind it (ignoring comments, spaces and \n)
@@ -2215,10 +2300,13 @@ class Forth_block(Block_template):
 					break
 			########################################################################################
 
+
+
 			########################################################################################
-			#### capturing functions declaration code (only if it's indeed a function)
+			# (2) FUNCTION DEF CAPTURING ALGORITHM
+			# capturing functions declaration code (only if it's indeed a function) Algorithm
 			if possibly_a_func:
-				# extracting function declaration code (could be if/while/etc..)
+				# extracting function declaration code (could be if/while/etc..) 
 				close_brack_count = 0
 				open_brack_count = 0
 				open_bracket_found = False
@@ -2228,6 +2316,8 @@ class Forth_block(Block_template):
 					
 					if not open_bracket_found:
 						# finding the openning bracket of the param defs
+						# no special case for comments or code switches because it will search for the first bracket
+						# VULNERABILITY : if a comment has brackets :(
 						if char3 == '(':
 							open_brack_count += 1
 						if char3 == ')':
@@ -2288,12 +2378,16 @@ class Forth_block(Block_template):
 					func_defs_raw.append((raw_func_def_code, start_line_num, end_line_num, body))
 			########################################################################################
 
+
+		########################################################################################
+		# (3) FUNCTION DEF PARSING ALGORITHM
 		# seperating retval and name from parameters and initiating Func
 		local_keywords = ['local', 'static']
 		for fn, start_line_num, end_line_num, body in func_defs_raw:
 			
 			# KILLING ALL COMMENTS >:( 
 			fn = Forth_block.KILL_ALL_COMMENTS(fn).strip()
+			fn = fn.replace('#endif', '')
 			
 			# # for debugging
 			# print(fn, start_line_num, end_line_num)
@@ -2302,7 +2396,6 @@ class Forth_block(Block_template):
 			open_brack_count = 0
 			found_param_start_ind = False
 			for ind, char in enumerate(fn[::-1]):
-
 				# finding param first
 				if not found_param_start_ind:
 					if char == '(':
@@ -2310,7 +2403,7 @@ class Forth_block(Block_template):
 					if char == ')':
 						close_brack_count += 1
 
-					if open_brack_count == close_brack_count:
+					if open_brack_count == close_brack_count and open_brack_count != 0:
 						param_start_ind = len(fn) - ind
 						found_param_start_ind = True
 						param_raw = fn[param_start_ind:-1]
@@ -3117,7 +3210,6 @@ def analyze_component(wanted_component=None, variant=None, branch=None, paths_to
 	# Step 3: Export outputs
 	export_csv(blocks)
 
-
 # Internal Only Functions
 def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, path_to_reports_in, path_to_tcc_in):
 	'''
@@ -3270,20 +3362,20 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = None  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
-	MANUAL_CAT3_MODE_INPUT = 'base+'
+	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "init_task"
-	CAT_num = 3
+	component_name = "idp"
+	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
 
 	paths_to_code = [r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\Components",
-					r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\workspace",
-					r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_actvdcha\Components"]
+					 r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_cu\workspace",
+					 r"C:\Users\abadran\Dev_analysis\Beifang\script\input_files\code\VW_MEB_Software\src\fw_actvdcha\Components"]
 	
 	path_to_reports = r"W:\DE\ERL1\RnD\serv\JBUILD\VW_MEB"
 
