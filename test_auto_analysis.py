@@ -3,10 +3,19 @@ Unit Test file for auto_analysis.py script
 '''
 
 ########################################################################################################################################
-# Imports
-from auto_analysis import Forth_block
+### Imports
 
+# Database
+from auto_analysis import WorkItem, Component, DetailedDesign, Requirement, Diagnostic, Interface
 
+# Blocks
+from auto_analysis import BlockTemplate, FirstBlock, SecondBlock, ThirdBlock, ForthBlock, FifthBlock, SixthBlock, SeventhBlock
+
+# Main Functions
+from auto_analysis import read_assign_all_CSVs, analyze_component, create_blocks
+
+# Exports
+from auto_analysis import export_csv, GoogleSheet
 ########################################################################################################################################
 
 
@@ -220,7 +229,7 @@ class TestForthBlock:
 		
 		 lksjdlfkjdsf'''
 
-		assert Forth_block.KILL_ALL_COMMENTS(test_string) == correct_output
+		assert ForthBlock.KILL_ALL_COMMENTS(test_string) == correct_output
 
 	def test_KILL_ALL_CODE_SWITCHES(self):
 		pass
@@ -316,9 +325,6 @@ def test_read_assign_all_CSVs():
 	pass
 
 def test_analyze_component():
-	pass
-
-def test_main():
 	pass
 
 def test_create_blocks():
