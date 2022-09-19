@@ -42,6 +42,8 @@ from main_pkg.auto_analysis import export_csv, GoogleSheet
 # def test_func_that_could_raises_ValuError():
 # 	with pytest.raises(ValueError):
 # 		func_that_could_raises_ValuError(argument_that_lets_the_function_raise_ValueError)
+
+# fixtures :)
 ########################################################################################################################################
 
 
