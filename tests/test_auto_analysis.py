@@ -5,18 +5,45 @@ Unit Test file for auto_analysis.py script
 ########################################################################################################################################
 ### Imports
 
+# pytest
+import pytest
+
 # Database
-from auto_analysis import WorkItem, Component, DetailedDesign, Requirement, Diagnostic, Interface
+from main_pkg.auto_analysis import WorkItem, Component, DetailedDesign, Requirement, Diagnostic, Interface
 
 # Blocks
-from auto_analysis import BlockTemplate, FirstBlock, SecondBlock, ThirdBlock, ForthBlock, FifthBlock, SixthBlock, SeventhBlock
+from main_pkg.auto_analysis import BlockTemplate, FirstBlock, SecondBlock, ThirdBlock, ForthBlock, FifthBlock, SixthBlock, SeventhBlock
 
 # Main Functions
-from auto_analysis import read_assign_all_CSVs, analyze_component, create_blocks
+from main_pkg.auto_analysis import read_assign_all_CSVs, analyze_component, create_blocks
 
 # Exports
-from auto_analysis import export_csv, GoogleSheet
+from main_pkg.auto_analysis import export_csv, GoogleSheet
 ########################################################################################################################################
+
+
+
+
+########################################################################################################################################
+# Important Decorators
+
+# skipping tests for a reason
+# @pytest.mark.skip(reason='reason why you want to skip this test')
+
+# tests based on a condition
+# @pytest.mark.skipif
+
+# for tests that you know will fail and don't want it to fail the build
+# it will run normally, but if it fails, it will not tell you the whole build failed
+# @pytest.mark.xfail
+
+# for testing exceptions; whether an exception is raised or not for a specific input
+# must implement in the test function
+# def test_func_that_could_raises_ValuError():
+# 	with pytest.raises(ValueError):
+# 		func_that_could_raises_ValuError(argument_that_lets_the_function_raise_ValueError)
+########################################################################################################################################
+
 
 
 
@@ -210,26 +237,16 @@ class TestForthBlock:
 	def test_assign_enabled_stat(self):
 		pass
 
-	def test_KILL_ALL_COMMENTS(self):
-		'''
-		Testing kill all comments algorithm
-		'''
-		test_string = '''lskdfj /* lskjdfj */sdfdsfsd
-		slkdjlkfjdskfj /* lskdfjdf
-		ldksjfkjdslkfj */
-		sldkfjldsjf // ljsdlfkjdsf lksjfd jsdlkfj 
-		// lskjdlfjdsfkj
-		// lsjdlfkjd f
-		/* lskdjf */ lksjdlfkjdsf'''
+	@pytest.mark.parametrize("test_input,expected", [
+		('lskdfj /* lskjdfj */sdfdsfsd', 'lskdfj sdfdsfsd'),  # testing comment in the middle
+		('slkdjlkfjdskfj /* lskdfjdf\nldksjfkjdslkfj */', 'slkdjlkfjdskfj '),  # testing multi-line comment
+		('sldkfjldsjf // ljsdlfkjdsf lksjfd jsdlkfj ', 'sldkfjldsjf '),  # testing // comment
+		('// lskjdlfjdsfkj', ''),  # testing comment at the begginging of the line
+		('/* lskdjf */ lksjdlfkjdsf', ' lksjdlfkjdsf')  # testing comment in the beggining with non-comment text after
 
-		correct_output = '''lskdfj sdfdsfsd
-		slkdjlkfjdskfj 
-		sldkfjldsjf 
-		
-		
-		 lksjdlfkjdsf'''
-
-		assert ForthBlock.KILL_ALL_COMMENTS(test_string) == correct_output
+		])
+	def test_KILL_ALL_COMMENTS(self, test_input, expected):
+		assert ForthBlock.KILL_ALL_COMMENTS(test_input) == expected
 
 	def test_KILL_ALL_CODE_SWITCHES(self):
 		pass

@@ -1946,7 +1946,7 @@ class ForthBlock(BlockTemplate):
 
 						else:
 							line_num = text[:ind+3].count('\n')
-							if passive_mode:
+							if passive_mode or openner == '//':
 								return text[:text.find(openner)]
 							else:
 								raise ValueError(f"A comment is openned and never closed\nLook at line {line_num} {text}")
@@ -3375,8 +3375,6 @@ class GoogleSheet:  # Awaiting Permission :(
 		'''
 		pass
 ########################################################################################################################################
-def main_feature():
-	print("new main feature")
 
 
 
