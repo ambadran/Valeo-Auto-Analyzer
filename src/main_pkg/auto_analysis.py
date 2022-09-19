@@ -1643,7 +1643,7 @@ class SecondBlock(BlockTemplate):
 		return output
 
 
-class ThirdBlock(BlockTemplate):
+class ThirdBlock(SecondBlock):
 	"""
 	3. Dead code analysis.	
 	"""
