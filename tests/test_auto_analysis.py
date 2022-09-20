@@ -240,11 +240,11 @@ class TestForthBlock:
 		pass
 
 	@pytest.mark.parametrize("test_input,expected", [
-		('lskdfj /* lskjdfj */sdfdsfsd', 'lskdfj sdfdsfsd'),  # testing comment in the middle
-		('slkdjlkfjdskfj /* lskdfjdf\nldksjfkjdslkfj */', 'slkdjlkfjdskfj '),  # testing multi-line comment
-		('sldkfjldsjf // ljsdlfkjdsf lksjfd jsdlkfj ', 'sldkfjldsjf '),  # testing // comment
-		('// lskjdlfjdsfkj', ''),  # testing comment at the begginging of the line
-		('/* lskdjf */ lksjdlfkjdsf', ' lksjdlfkjdsf')  # testing comment in the beggining with non-comment text after
+		('lskdfj /* lskjdfj */sdfdsfsd', 					'lskdfj sdfdsfsd'),  # testing comment in the middle
+		('slkdjlkfjdskfj /* lskdfjdf\nldksjfkjdslkfj */', 	'slkdjlkfjdskfj '),  # testing multi-line comment
+		('sldkfjldsjf // ljsdlfkjdsf lksjfd jsdlkfj ', 		'sldkfjldsjf '),  # testing // comment
+		('// lskjdlfjdsfkj', 								''),  # testing comment at the begginging of the line
+		('/* lskdjf */ lksjdlfkjdsf', 						' lksjdlfkjdsf')  # testing comment in the beggining with non-comment text after
 
 		])
 	def test_KILL_ALL_COMMENTS(self, test_input, expected):

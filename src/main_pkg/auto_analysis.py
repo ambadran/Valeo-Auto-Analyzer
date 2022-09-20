@@ -2263,8 +2263,9 @@ class ForthBlock(BlockTemplate):
 
 		########################################################################################
 		# (1) & (2) DETECT AND CAPTURE ALGORITHM
-		unwanted_pattern = r'[ \t\n](if|for|while|switch|#if|#elif|#ifdef|#ifndef)[\( \t\n]'
+		unwanted_pattern = r'[ \t\n](if|for|while|switch|#if|#elif|#ifdef|#ifndef)[ \t\n]*\('
 		code_switch_trigger_words = ['#if', '#ifndef', '#ifdef', '#elif', '#else', '#endif']
+		possibly_a_func_counter = 0
 		for ind, char in enumerate(code):
 
 
@@ -2313,6 +2314,18 @@ class ForthBlock(BlockTemplate):
 			# (2) FUNCTION DEF CAPTURING ALGORITHM
 			# capturing functions declaration code (only if it's indeed a function) Algorithm
 			if possibly_a_func:
+
+				possibly_a_func_counter += 1
+				# ############## FOR DEBUGGING ONLY No.1 ###############
+				# # here is look for the text before the { of the function missing
+				# if without_code_switch_test:
+				# 	print("\n\n############ ONLY FOR DEBUGGING FUNCTION CAPTURING ALGORITHM ##########")
+				# 	print(f"Possibly a func counter: {possibly_a_func_counter}:")
+				# 	THRESHOLD = 100
+				# 	print(code[ind-THRESHOLD:ind])
+				# 	print("#######################################################################\n\n")
+				# #######################################################
+
 				# extracting function declaration code (could be if/while/etc..) 
 				close_brack_count = 0
 				open_brack_count = 0
@@ -2333,6 +2346,15 @@ class ForthBlock(BlockTemplate):
 						if open_brack_count == close_brack_count and open_brack_count != 0:
 							# found the end of the bracket, param defs finished
 							open_bracket_found = True
+
+							# ############## FOR DEBUGGING ONLY No.2 ###############
+							# # if wanted function is found from No.1 debugging
+							# # put it here to make sure this step worked
+							# if possibly_a_func_counter == 25:
+							# 	print("reached herere, Debug No. 2 !!!!!!")
+							# 	print(code[:ind][::-1][ind3:ind3+20][::-1])
+							# ######################################################
+
 							continue
 					
 					elif not character_found:
@@ -2340,13 +2362,33 @@ class ForthBlock(BlockTemplate):
 						if char3 not in to_be_ignored_chars:
 							# found a character let's find the start of this line
 							character_found = True
+
+							# ############## FOR DEBUGGING ONLY No.3 ###############
+							# # if wanted function is found from No.1 debugging
+							# # put it here to make sure this step worked
+							# if possibly_a_func_counter == 25:
+							# 	print("reached herere, Debug No. 3 !!!!!!")
+							# 	print(code[:ind][::-1][ind3:ind3+20][::-1])
+							# ######################################################
+
 							continue
 					else:
 						# now we assume we found the last character of the func name (if it's a func block)
 						# and we assume the rest of the func def is in the same line
+						# and we assume this is a function defined in global scope, not inside another function
 						# so now finding the index of the nearst \n 
 						if char3 == '\n':
 							func_def_start_ind = ind-ind3-1
+
+							# ############## FOR DEBUGGING ONLY No.4 ###############
+							# # if wanted function is found from No.1 debugging
+							# # put it here to make sure this step worked
+							# if possibly_a_func_counter == 25:
+							# 	print("reached herere, Debug No. 4 !!!!!!")
+							# 	print(code[:ind][::-1][ind3:ind3+20][::-1])
+							# ######################################################
+
+
 							break
 				else:
 					problem_at_line_num = code[:ind].count('\n')
@@ -2354,8 +2396,16 @@ class ForthBlock(BlockTemplate):
 					continue
 
 				possibly_a_func_def = code[func_def_start_ind:ind]
+
+				# ############## FOR DEBUGGING ONLY No.5 ###############
+				# # if wanted function is found from No.1 debugging
+				# # put it here to make sure this step worked
+				# if possibly_a_func_counter == 25:
+				# 	print("reached herere, Debug No. 5 !!!!!!")
+				# 	print(possibly_a_func_def)
+				# ######################################################
 				
-				# filtering for func blocks only
+				### Filter for func blocks only
 				if not re.findall(unwanted_pattern, possibly_a_func_def):
 					##### finally a func def is detected and saved ####
 					raw_func_def_code = possibly_a_func_def.strip()
@@ -2383,7 +2433,31 @@ class ForthBlock(BlockTemplate):
 					end_line_num = code[:body_end_index].count("\n") + 1
 
 					func_defs_raw.append((raw_func_def_code, start_line_num, end_line_num, body))
+				
+				############## FOR DEBUGGING ONLY No.6 ###############
+				else:
+					# if wanted function is found from No.1 debugging
+					# put it here to make sure this step worked
+					if possibly_a_func_counter == 25:
+						print("reached herere, Debug No. 6 !!!!!!")
+						print("THE FUNCTION IS WRONGLY FILTERED!!!!!")
+						print(re.findall(unwanted_pattern, possibly_a_func_def))
+				######################################################
 			########################################################################################
+
+
+		# ############## FOR DEBUGGING ONLY No.7 ###############
+		# if without_code_switch_test:
+		# 	name_of_unshown_func = 'CheckNvmReady'
+		# 	print("\n\n######## ONLY FOR DEBUGGING FUNCTION CAPTURING ALGORITHM##########")
+		# 	for func_def_raw_only in [fn[0] for fn in func_defs_raw]:
+		# 		if name_of_unshown_func in func_def_raw_only:
+		# 			print(f"FUNC DEF CAPTURING algorithm IS working for FUNC: {name_of_unshown_func}")
+		# 			break
+		# 	else:
+		# 		print(f"FUNC DEF CAPTURING algorithm ISN'T working for FUNC: {name_of_unshown_func}")
+		# 	print("##################################################################\n\n")
+		# ######################################################
 
 
 		########################################################################################
@@ -2391,7 +2465,7 @@ class ForthBlock(BlockTemplate):
 		# seperating retval and name from parameters and initiating Func
 		local_keywords = ['local', 'static']
 		for fn, start_line_num, end_line_num, body in func_defs_raw:
-			
+
 			# KILLING ALL COMMENTS >:( 
 			fn = ForthBlock.KILL_ALL_COMMENTS(fn).strip()
 			fn = fn.replace('#endif', '')
@@ -3388,7 +3462,7 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = 1  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
 	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
