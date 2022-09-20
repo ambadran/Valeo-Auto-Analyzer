@@ -1970,7 +1970,10 @@ class ForthBlock(BlockTemplate):
 		if text == None:
 			text = deepcopy(self.code_file)
 		if code_switches == None:
-			code_switches = self.code_switches_all
+			if self.code_switches_all == None:
+				return text
+			else:
+			 code_switches = self.code_switches_all
 
 		text_lines = text.split('\n')
 		output_lines = []
@@ -3385,13 +3388,13 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	DOCUMENT_CHOOSEN_NUMBER = 1  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
 	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "idp"
+	component_name = "nvm_sms"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
