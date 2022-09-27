@@ -298,17 +298,28 @@ class WorkItem(ABC):
 		return not (False in self.workitems_type_set.values())
 
 	@classmethod
-	def assign_validate_polarian_link(cls):
+	def assign_validate_polarian_link(cls, variable=None):
 		'''
 		makes sure the global variable my_polarian_web_link is valid
 		Then assigns class variable
 		'''
-		try:
-			stop_ind = my_polarian_web_link.index("mypolarion")
-		except ValueError:
-			raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
+		if variable == None:
+			try:
+				stop_ind = my_polarian_web_link.index("mypolarion")
+			except ValueError:
+				raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
 
-		cls.my_polarian_web_link = my_polarian_web_link[:stop_ind]
+			cls.my_polarian_web_link = my_polarian_web_link[:stop_ind]
+
+		else:
+			try:
+				stop_ind = variable.index("mypolarion")
+			except ValueError:
+				raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
+
+			cls.my_polarian_web_link = variable[:stop_ind]
+
+		
 
 	@property
 	def polarian_link(self) -> str:
@@ -3614,6 +3625,9 @@ def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, pa
 	print("Reading polarian csv outputs and parsing data....")
 	read_assign_all_CSVs()
 
+	### for google sheet api
+	WorkItem.assign_validate_polarian_link()
+
 	# get wanted component object
 	print(f"Finding Component: {component_name} in Polarian\n")
 	wanted_component = Component.get_component(component_name, CAT_num, branch)
@@ -3657,9 +3671,6 @@ def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_rep
 		path_to_tcc = path_to_tcc_in
 
 	print(f"\n######################################\nCreating blocks for Variant:{variant}\n")
-
-	# I really don't know where to put this line, it must be executed, not sure where is the best place to put it
-	WorkItem.assign_validate_polarian_link()
 
 	blocks = []
 	if component.CAT_num == 1:	
