@@ -18,7 +18,7 @@ The Analysis step is made of 6 steps:
 
 ########################################################################################################################################
 # File Attributes
-__all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory', 'GoogleSheet']
+__all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory', 'export_csv', 'GoogleSheet']
 __author__ = 'AbdulRahman Mohsen Badran'
 __version__ = '0.2.1'
 
@@ -298,7 +298,7 @@ class WorkItem(ABC):
 		return not (False in self.workitems_type_set.values())
 
 	@classmethod
-	def validate_polarian_link(cls):
+	def assign_validate_polarian_link(cls):
 		'''
 		makes sure the global variable my_polarian_web_link is valid
 		Then assigns class variable
@@ -3657,6 +3657,9 @@ def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_rep
 		path_to_tcc = path_to_tcc_in
 
 	print(f"\n######################################\nCreating blocks for Variant:{variant}\n")
+
+	# I really don't know where to put this line, it must be executed, not sure where is the best place to put it
+	WorkItem.validate_polarian_link()
 
 	blocks = []
 	if component.CAT_num == 1:	
