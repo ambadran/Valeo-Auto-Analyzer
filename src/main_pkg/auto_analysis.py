@@ -4018,6 +4018,7 @@ class GoogleSheet:
 			cell['userEnteredValue'] = {'stringValue': value}           
 
 		return cell
+	
 	def create_empty_table_rowData(self, row_count) -> List[Dict]:
 		'''
 		empty rows for Google sheet, meant to put spaces between different tables
@@ -4529,11 +4530,12 @@ class GoogleSheet:
 		if os.path.exists(GoogleSheet.path_to_token_json):
 			print("Reading Creds...")
 			creds = Credentials.from_authorized_user_file(GoogleSheet.path_to_token_json, GoogleSheet.SCOPES)
+			print("Done Reading Creds!")
 			# If there are no (valid) credentials available, let the user log in.
 		
 		else:
 			# token.json is not there
-			raise FileNotFoundError("'token.json' is not found!\nCouldn't create GoogleSheet")
+			raise FileNotFoundError("'token.json' is not found!\nPlease ask admin to make token.json for you.")
 				
 		# if token.json is there or not valid	
 		if not creds or not creds.valid:
@@ -4542,8 +4544,10 @@ class GoogleSheet:
 			if creds and creds.expired and creds.refresh_token:
 				print("\n\nRefreshing token.json...")
 				creds.refresh(Request())
+				print("Done!")
 				
 		try:
+			print("\nSending API create spreadsheet Request...")
 			service = build('sheets', 'v4', credentials=creds)
 			spreadsheet = self.get_complete_spreadsheet()  # :)
 
@@ -4551,7 +4555,7 @@ class GoogleSheet:
 
 			spreadsheet_id = spreadsheet.get('spreadsheetId')
 
-			print(f"Spreadsheet ID: {(spreadsheet.get('spreadsheetId'))}")
+			print(f"Done Creating Spreadsheet with ID: {(spreadsheet.get('spreadsheetId'))}")
 
 		except HttpError as error:
 			print(f"An error occurred: {error}")
