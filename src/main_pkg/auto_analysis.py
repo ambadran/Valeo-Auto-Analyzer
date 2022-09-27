@@ -3557,7 +3557,7 @@ class SeventhBlock(BlockTemplate):
 ########################################################################################################################################
 #### Main Functions
 
-# External and Internal (put in __all__)
+# External and Internal (put in __all__) Functions
 def set_wanted_directory(homedir_in):
 	'''
 	Meant to be called from a user script, e.g- a CLI
@@ -3751,7 +3751,6 @@ def export_csv(blocks: List):
 
 	print(f"Exported CSV files for {blocks[0].variant}\n######################################\n\n")
 
-
 class GoogleSheet:  
 	'''
 	
@@ -3783,7 +3782,7 @@ class GoogleSheet:
 
 	def __init__(self, blocks: List):
 		'''
-		creating and filling the google sheet
+		creating the google sheet
 		'''
 		self.blocks = blocks
 
@@ -4576,7 +4575,6 @@ class GoogleSheet:
 
 		# finally return spreadsheetID
 		return spreadsheet_id
-
 ########################################################################################################################################
 
 
