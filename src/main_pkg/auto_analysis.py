@@ -20,7 +20,7 @@ The Analysis step is made of 6 steps:
 # File Attributes
 __all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory', 'export_csv', 'GoogleSheet']
 __author__ = 'AbdulRahman Mohsen Badran'
-__version__ = '0.2.1'
+__version__ = '1.0.0'
 
 ########################################################################################################################################
 
