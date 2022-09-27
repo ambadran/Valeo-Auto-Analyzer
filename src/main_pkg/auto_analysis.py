@@ -3659,7 +3659,7 @@ def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_rep
 	print(f"\n######################################\nCreating blocks for Variant:{variant}\n")
 
 	# I really don't know where to put this line, it must be executed, not sure where is the best place to put it
-	WorkItem.validate_polarian_link()
+	WorkItem.assign_validate_polarian_link()
 
 	blocks = []
 	if component.CAT_num == 1:	
