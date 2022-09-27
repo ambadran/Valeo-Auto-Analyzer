@@ -18,7 +18,7 @@ The Analysis step is made of 6 steps:
 
 ########################################################################################################################################
 # File Attributes
-__all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory']
+__all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory', 'GoogleSheet']
 __author__ = 'AbdulRahman Mohsen Badran'
 __version__ = '0.2.1'
 
@@ -554,6 +554,14 @@ class Component(WorkItem):
 
 		if wrapper_stat:
 			wanted_component.wrapper_stat = True
+
+
+		#### linking all workitems together
+		print("Linking all Work Items together...")
+		wanted_component.link_internals_all()
+		# In case a component doens't have linkedworkitem
+		if wanted_component.is_linked:
+			print("Done linking\n\n")
 
 		return wanted_component
 
@@ -3585,14 +3593,8 @@ def analyze_component(wanted_component=None, variant=None, branch=None, paths_to
 		my_polarian_web_link = my_polarian_web_link_in
 
 	##### Executing the script ######
-	# Step 1: link all workitems together
-	print("Linking all Work Items together...")
-	wanted_component.link_internals_all()
-	# In case a component doens't have linkedworkitem
-	if wanted_component.is_linked:
-		print("Done linking\n\n")
 
-	# Step 2: Run all bocks
+	# Running all bocks
 	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
 	blocks = create_blocks(wanted_component, variant, branch)
 	print('\nAnalysis is Completed Successfully!!!\n')
@@ -3628,7 +3630,6 @@ def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, pa
 	google_sheet = GoogleSheet(blocks)
 	google_sheet.copy_link_to_clipboard()
 	google_sheet.save_link_in_txt_file()
-	print("Saved GoogleSheet link in output/GoogleSheets/ folder!")
 
 def set_wanted_directory_internal(homedir_in):
 	'''
@@ -3793,6 +3794,7 @@ class GoogleSheet:
 		Path('output/GoogleSheets/').mkdir(parents=True, exist_ok=True)
 		with open(f"output/GoogleSheets/{self.blocks[0].component.true_title}_{self.blocks[0].SW_release}_GoogleSheet_link.txt", 'w') as file:
 			file.write(self.link)
+			print(f"Saved GoogleSheet link in 'output/GoogleSheets/{self.blocks[0].component.true_title}_{self.blocks[0].SW_release}_GoogleSheet_link.txt' file!")
 
 	def copy_link_to_clipboard(self):
 		'''
@@ -4568,13 +4570,13 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = None  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	DOCUMENT_CHOOSEN_NUMBER = 1  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
 	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "SftyLibApp"
+	component_name = "Obd"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
