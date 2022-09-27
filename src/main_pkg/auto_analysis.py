@@ -3767,8 +3767,7 @@ class GoogleSheet:
 	# If modifying these scopes, delete the file token.json.
 	SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
-	# Path to token.json, this is the default, meant to be used for CLI
-	path_to_token_json = 'internals/google_sheet_api_files/token.json'
+	path_to_json_files = 'input_files/json_files/'
 
 	colors = {
 		'yellow': {'blue': 0.6, 'green': 0.8980392, 'red': 1},
@@ -3905,7 +3904,7 @@ class GoogleSheet:
 		'''
 		reads json file and return json data (basically it's a dictionary)
 		'''
-		with open(f'internals/google_sheet_api_files/{file_name}', 'r') as json_file:
+		with open(f'{GoogleSheet.path_to_json_files}{file_name}', 'r') as json_file:
 			return eval(json_file.read())
 
 	@staticmethod
@@ -4537,10 +4536,11 @@ class GoogleSheet:
 
 	    ################### Creating the SpreadSheet ###################
 		creds = None
+		path_to_token_json = GoogleSheet.path_to_json_files + 'token.json'
 
-		if os.path.exists(GoogleSheet.path_to_token_json):
+		if os.path.exists(path_to_token_json):
 			print("Reading Creds...")
-			creds = Credentials.from_authorized_user_file(GoogleSheet.path_to_token_json, GoogleSheet.SCOPES)
+			creds = Credentials.from_authorized_user_file(path_to_token_json, GoogleSheet.SCOPES)
 			print("Done Reading Creds!")
 			# If there are no (valid) credentials available, let the user log in.
 		
@@ -4608,7 +4608,6 @@ if __name__ == '__main__':
 	path_to_tcc = 'C:\\tcc'
 
 	my_polarian_web_link = "https://vseapolarion.vnet.valeo.com/polarion/#/project/VW_MEB_Inverter/mypolarion"
-	WorkItem.validate_polarian_link()
 
 	### Run the script
 	main(homedir, component_name, CAT_num, branch, variant, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link)
