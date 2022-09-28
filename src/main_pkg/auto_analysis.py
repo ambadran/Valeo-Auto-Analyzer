@@ -2700,15 +2700,15 @@ class ForthBlock(BlockTemplate):
 
 					func_defs_raw.append((raw_func_def_code, start_line_num, end_line_num, body))
 				
-				############## FOR DEBUGGING ONLY No.6 ###############
-				else:
-					# if wanted function is found from No.1 debugging
-					# put it here to make sure this step worked
-					if possibly_a_func_counter == 25:
-						print("reached herere, Debug No. 6 !!!!!!")
-						print("THE FUNCTION IS WRONGLY FILTERED!!!!!")
-						print(re.findall(unwanted_pattern, possibly_a_func_def))
-				######################################################
+				# ############## FOR DEBUGGING ONLY No.6 ###############
+				# else:
+				# 	# if wanted function is found from No.1 debugging
+				# 	# put it here to make sure this step worked
+				# 	if possibly_a_func_counter == 25:
+				# 		print("reached herere, Debug No. 6 !!!!!!")
+				# 		print("THE FUNCTION IS WRONGLY FILTERED!!!!!")
+				# 		print(re.findall(unwanted_pattern, possibly_a_func_def))
+				# ######################################################
 			########################################################################################
 
 
@@ -4176,7 +4176,6 @@ class GoogleSheet:
 			if current_row >= table_end_row_inds[current_key_col_index]:
 				current_key_col_index += 1
 				current_col_list = ID_col_indexes[table_start_row_inds[current_key_col_index]]
-				print(current_col_list, 'curent_col_list')
 
 			# creating a new list of cellData
 			list_of_body_rows.append([])
