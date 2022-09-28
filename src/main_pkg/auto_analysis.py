@@ -57,7 +57,7 @@ except ImportError:
 ### constants
 
 global DISABLE_REPORT_SEARCH
-DISABLE_REPORT_SEARCH = False
+DISABLE_REPORT_SEARCH = True
 global MANUAL_CAT3_MODE_INPUT
 MANUAL_CAT3_MODE_INPUT = None
 global DEBUG_FUNC_DEFS
@@ -1335,6 +1335,10 @@ class SecondBlock(BlockTemplate):
 
 		self.sole_files = []
 
+		# TEMPORARY FOR UNIT TESTING
+		global path_to_reports
+		path_to_reports = r"W:\DE\ERL1\RnD\serv\JBUILD\VW_MEB"
+
 		global DISABLE_REPORT_SEARCH
 		if DISABLE_REPORT_SEARCH:
 			self.report = None  # TEMPORARY FOR SERVER CUT
@@ -1351,7 +1355,7 @@ class SecondBlock(BlockTemplate):
 			self.code_coverage = self.get_entries()
 			self.code_coverage_stat = self.get_code_coverage_stat()
 				
-	def get_code_coverage_stat(self) -> int:
+	def get_code_coverage_stat(self) -> float:
 		"""
 		returns summary % of all code coverage (summary of summary)
 		"""
@@ -1509,7 +1513,7 @@ class SecondBlock(BlockTemplate):
 
 		return output	
 
-	def search_for_report(self) -> List[str]:
+	def search_for_report(self, comp_true_name, variant, branch) -> List[str]:
 		'''
 		Implements a backtracking algorithm (DFS) to search for report
 		return list of html file raw, (with the tags and everything)
@@ -1534,13 +1538,14 @@ class SecondBlock(BlockTemplate):
 		# 7- search the .html {search_key} files for the name of the component
 		# 8- if found return, else recurse to the last valid step
 
-		goal_test = goal_test_general(self.component.true_title)
-		successor = successor_general(self.variant, self.branch, self.search_key)
+		# TEMPORARY FOR UNIT TESTING
+		goal_test = goal_test_general(comp_true_name)
+		successor = successor_general(variant, branch, self.search_key)
 
 		report_path = DFS(path, goal_test, successor)
 
 		if report_path == None:
-			print(f"Didn't find {self.component.true_title} {self.search_key} report\n\n")
+			print(f"Didn't find {comp_true_name} {self.search_key} report\n\n")
 			return None
 
 		else:
@@ -1551,20 +1556,19 @@ class SecondBlock(BlockTemplate):
 				self.report_path = report_path
 				files = os.listdir(self.report_path)
 				for file in files:
-					if re.search(fr"{self.component.true_title.lower()}_?\d*[\.]?c?.html", file.lower()):  # to avoid name_cfg, we only want name_x where x is a number
+					if re.search(fr"{comp_true_name.lower()}_?\d*[\.]?c?.html", file.lower()):  # to avoid name_cfg, we only want name_x where x is a number
 						print(f"Found file {file}")
 						self.sole_files.append(file)
 						with open(f"{self.report_path}/{file}", 'r') as file:
 							output.append(file.read())
 			else:
-				# finish_ind = -(report_path[::-1].find('/')+1)  # index where the name of the html file starts
 				finish_ind = report_path.find('.zip')
 				zip_path = report_path[:finish_ind+4]
 				self.report_path = zip_path
 				with ZipFile(zip_path, 'r') as zipobj:
 					paths = zipobj.namelist()
 					for path in paths:
-						if re.search(fr"{self.component.true_title.lower()}_?\d*[\.]?c?.html", path.lower()) and 'Cvi' not in path:
+						if re.search(fr"{comp_true_name.lower()}_?\d*[\.]?c?.html", path.lower()) and 'Cvi' not in path:
 							print(f"Found file {zip_path}/{path}")
 							self.sole_files.append(path)
 							with zipobj.open(path, 'r') as p:
@@ -1573,6 +1577,7 @@ class SecondBlock(BlockTemplate):
 		return output
 
 	def find_report(self):
+	
 		"""
 		it will look in "input_files/reports/{self.variant}/{self.search_key}/self.component.true_title" first, if not found it will search otherwise it'll use it.
 
@@ -1598,10 +1603,10 @@ class SecondBlock(BlockTemplate):
 
 			else:  # Didn't find self.search_key report, Thus will commence searching for self.search_key in server files
 				print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{path_to_reports}\n")
-				output = self.search_for_report()
+				output = self.search_for_report(self.component.true_title, self.variant, self.branch)
 		else:   # Didn't find self.search_key report, Thus will commence searching for self.search_key in server files
 			print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{path_to_reports}\n")
-			output = self.search_for_report()
+			output = self.search_for_report(self.component.true_title, self.variant, self.branch)
 
 		if output == None:
 			return None
@@ -1615,6 +1620,7 @@ class SecondBlock(BlockTemplate):
 			if path[ind] == "\\":
 				path = path[:ind] + '/' + path[ind+1:]
 		return path
+
 
 	def checklist_table(self):
 		output = []
@@ -1683,9 +1689,9 @@ class ThirdBlock(SecondBlock):
 		'''
 		whether there are dead code or not
 		'''
-		return not not self.get_entries()
+		return not not self.dead_code  # NEED TO BE FIXED
 
-	def get_entries(self) -> List[QAC]:
+	def get_entries(self) -> bool:
 		'''
 		if unreachable in report, use helix QAC to generate QAC object 
 		and report them in table
@@ -1741,7 +1747,18 @@ class ForthBlock(BlockTemplate):
 		self.enabled_disabled_result: Dict[str: bool] = {}  # str= statetment e.g- (ASM==1), bool=enabled/disabled -> True/False
 
 		self.all_files = None
+		
+		# TEMPORARY FOR UNIT TESTING
+
+		global paths_to_code
+		paths_to_code = ['C:/VW/VW_MEB_Software/src/fw_cu/Components']
 		self.code_file_both = self.get_code_file(self.component.true_title)
+		
+		# TEMPORARY FOR UNIT TESTING
+
+		global path_to_tcc
+		path_to_tcc = 'C:\tcc'
+			
 		self.code_file, self.code_file_path = self.code_file_both
 		print(f"Will be reading code from file found at {self.code_file_path}\n\n")
 		self.include_files_to_search_in = {}
@@ -1777,7 +1794,7 @@ class ForthBlock(BlockTemplate):
 
 	def get_code_switch_necessity(self) -> bool:
 		"""
-		hamza told me don't do it, FGL is responsible for it
+		Hamza told me don't do it, FGL is responsible for it
 		"""
 		pass
 
@@ -1998,6 +2015,12 @@ class ForthBlock(BlockTemplate):
 		output_lines.extend(text_lines[current_end_line_num:])
 
 		output = "\n".join(output_lines)
+		
+		#Mostafa
+		with open('fileWithNo_code_switches','w') as file:
+			for line in output_lines:
+				file.write(line)
+
 
 		return output
 		
@@ -2175,7 +2198,8 @@ class ForthBlock(BlockTemplate):
 
 		return result, path
 
-	def filter_backslash(self, path):
+	@staticmethod
+	def filter_backslash(path):
 		"""
 		Main use is to let python read paths to a file
 		input path as string with backslashes 
