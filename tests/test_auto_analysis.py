@@ -22,12 +22,18 @@ from main_pkg.auto_analysis import WorkItem, Component, DetailedDesign, Requirem
 from main_pkg.auto_analysis import BlockTemplate, FirstBlock, SecondBlock, ThirdBlock, ForthBlock, FifthBlock, SixthBlock, SeventhBlock
 
 # Main Functions
-from main_pkg.auto_analysis import read_assign_all_CSVs, analyze_component, create_blocks
+from main_pkg.auto_analysis import read_assign_all_CSVs, create_blocks
 
 # Exports
 from main_pkg.auto_analysis import export_csv, GoogleSheet
 ########################################################################################################################################
 
+
+########################################################################################################################################
+# Important Decorators
+PATH_TO_LONG_TERM_TEST_MEMORY = 'tests/long_term_memory.txt'
+
+########################################################################################################################################
 
 
 
@@ -61,19 +67,26 @@ from main_pkg.auto_analysis import export_csv, GoogleSheet
 # Test functions
 
 #change component name 
-def change_component_name(component_name,variant,branch):
+def change_component_name(component_name, ID, comp_variants, working_variant, branch):
+
+	outputs = eval(read_file(PATH_TO_LONG_TERM_TEST_MEMORY))
+	paths_to_code = outputs[0]
+	path_to_reports = "C:\\tcc"
+	path_to_tcc = outputs[2]
+	my_polarian_web_link = outputs[3]
+
 	global dumy_component
-	dumy_component = Component(ID='VW-MEB-2384', title=component_name, variant=['base+','base-'])
+	dumy_component = Component(ID=ID, title=component_name, variant=comp_variants)
 	dumy_component.CAT_num=1
 	global dumy_first_block
-	dumy_first_block = FirstBlock(dumy_component, variant, branch)
+	dumy_first_block = FirstBlock(dumy_component, working_variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link)
 	global dumy_second_block
 	dumy_second_block = SecondBlock(dumy_first_block)
 	global dumy_third_block
 	dumy_third_block = ThirdBlock(dumy_first_block)
 	global dumy_forth_block
 	dumy_forth_block = ForthBlock(dumy_first_block)
-	global dumy_fifth_blocks
+	global dumy_fifth_block
 	dumy_fifth_block = FifthBlock(dumy_first_block,dumy_forth_block)
 
 
@@ -118,9 +131,6 @@ class TestWorkItem:
 
 	def test_link_all(self):
 		pass
-    
-dumy_component = Component(ID='VW-MEB-2384', title='Idp', variant=['base+','base-'])
-dumy_component.CAT_num=1	
 
 class TestComponent:
 
@@ -210,6 +220,9 @@ class TestInterface:
 ########################################################################################################################################
 # Blocks Testing
 
+
+change_component_name('Idp', 'VW-MEB-2384', ['base+','base-'], 'base+', 'P330')
+
 class TestBlockTemplate:
 
 	def test_init(self):
@@ -217,8 +230,6 @@ class TestBlockTemplate:
 
 		
 ################################# methods of FirstBlock ########################
-dumy_first_block = FirstBlock(dumy_component, 'base+', 'P330')
-
 
 def test_checklist_table():
 	pass
@@ -227,9 +238,6 @@ def test_analysis_table():
 	pass
 
 ################################# methods of SecondBlock ########################
-dumy_second_block = SecondBlock(dumy_first_block)
-
-
 
 @pytest.mark.parametrize("test_input,expected",[
 
@@ -245,7 +253,7 @@ dumy_second_block = SecondBlock(dumy_first_block)
 def test_get_code_coverage_stat(test_input,expected):
 	
 	dumy_second_block.code_coverage = {'Summary': test_input}
-	assert dumy_second_block.get_code_coverage_stat() == expected
+	assert dumy_second_block.get_stat() == expected
 
 
 	
@@ -255,28 +263,28 @@ def test_get_code_coverage_stat(test_input,expected):
 	
 	# input1
 	(
-	[html2text(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/test_input/Idp.html"))],
+	[html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/Idp.html"))],
 	
 	#expected1
-	eval(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test1.txt"))
+	eval(read_file("tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test1.txt"))
 	),
 	
 	#input2
 	(
-	[html2text(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/test_input/Exc.html"))],
+	[html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/Exc.html"))],
 	
 	#expected2
-	eval(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test2.txt"))
+	eval(read_file("tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test2.txt"))
 	),
 
 	#A component with more one report :
 	(
 	#input3
-	[html2text(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/test_input/SftyTqMon.html")),
-	 html2text(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/test_input/SftyTqMon_1.html"))],
+	[html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/SftyTqMon.html")),
+	 html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/SftyTqMon_1.html"))],
 	  
 	#expected3
-	eval(read_file("C:/Dev/auto_analysis/Valeo-Auto-Analyzer/tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test3.txt"))  
+	eval(read_file("tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test3.txt"))  
 	  
 	  
 	),
@@ -318,7 +326,7 @@ def test_search_for_report_RTRT(test_input,expected,variant,branch):
 
 
 @pytest.mark.parametrize("expected",[
-html2text(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\input_files\\reports\\base+\\RTRT\\Idp.html'))[:500],
+html2text(read_file('input_files\\reports\\base+\\RTRT\\Idp.html'))[:500],
 ])
 def test_find_report_RTRT(expected):
 	assert dumy_second_block.find_report()[0][:500] == expected
@@ -326,8 +334,6 @@ def test_find_report_RTRT(expected):
 
  
 ################################# methods of ThirdBlock ########################
-
-dumy_third_block = ThirdBlock(dumy_first_block)
 
 '''
 @pytest.mark.parametrize("test_input,variant,branch, expected", [
@@ -349,29 +355,29 @@ def test_search_for_report_QAC(test_input,expected,variant,branch):
 		assert set(test_outputs) == set(expected)
 
 '''
-@pytest.mark.parametrize("expected",[
-html2text(read_file('W:\\DE\\ERL1\\RnD\\serv\\JBUILD\\VW_MEB\\RollingBuild\\VW-MEB-P330-0015-20220729\\Base+\\Reports\\QAC\\VW_MEB\\mcr_data\\Idp.c.html'))[:500],
-])
-def test_find_report_QAC(expected):
-	assert dumy_third_block.find_report()[0][:500] == expected
+# @pytest.mark.parametrize("expected",[
+# html2text(read_file('W:\\DE\\ERL1\\RnD\\serv\\JBUILD\\VW_MEB\\RollingBuild\\VW-MEB-P330-0015-20220729\\Base+\\Reports\\QAC\\VW_MEB\\mcr_data\\Idp.c.html'))[:500],
+# ])
+# def test_find_report_QAC(expected):
+# 	assert dumy_third_block.find_report()[0][:500] == expected
 
 
 
 @pytest.mark.parametrize("test_input, expected" , [
 
-(True , True),
-(False , False),
+(['blah blah unreachable blah blah'] , True),
+(['blah blah blah'] , False),
 ])
 def test_get_dead_code_stat(test_input,expected):
-	dumy_third_block.dead_code = test_input
-	assert dumy_third_block.get_dead_code_stat() == expected
+	dumy_third_block.report = test_input
+	assert dumy_third_block.get_stat() == expected
 
 @pytest.mark.parametrize("test_input, expected",[
 
-([html2text(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_entries_QAC\\test_input\\BswErrDeb.c.html'))] , False),
-([html2text(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_entries_QAC\\test_input\\Idp.c.html'))]       , False),
-([html2text(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_entries_QAC\\test_input\\SftyTqMon.c.html'))] , False),
-([html2text(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_entries_QAC\\test_input\\Test_input_4.txt'))] , True),
+([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\BswErrDeb.c.html'))] , False),
+([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\Idp.c.html'))]       , False),
+([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\SftyTqMon.c.html'))] , False),
+([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\Test_input_4.txt'))] , True),
 
 ])
 def test_get_entries_QAC(test_input,expected):
@@ -394,11 +400,6 @@ def test_filter_backslash(test_input,expected):
 
 
 ########################### methods of ForthBlock ###########################
-
-dumy_forth_block = ForthBlock(dumy_first_block)
-
-
-
 
 @pytest.mark.parametrize("test_input,expected",[
 
@@ -464,10 +465,10 @@ def test_get_code_switches():
 
 
 @pytest.mark.parametrize("test_input, expected",[
-("IdP",(read_file("C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/idp.c"),"C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/Idp.c")),
-("obd",(read_file("C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/obd.c"),"C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/Obd.c")),
-("dcmext",(read_file("C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/dcmext.c"),"C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/DcmExt.c")),
-("demext",(read_file("C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/demext.c"),"C:/VW/VW_MEB_Software/src/fw_cu/Components/Cmn/Diagc/Diagc/src/DemExt.c")),
+("IdP",(read_file(f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/idp.c"), f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/Idp.c")),
+("obd",(read_file(f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/obd.c"), f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/Obd.c")),
+("dcmext",(read_file(f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/dcmext.c"), f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/DcmExt.c")),
+("demext",(read_file(f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/demext.c"), f"{dumy_first_block.paths_to_code[0]}/Cmn/Diagc/Diagc/src/DemExt.c")),
 
 ])
 def test_get_code_file(test_input,expected):
@@ -483,41 +484,38 @@ def test_get_all_funcs():
 
 ################################################Methods of fifth block#############################################################
 
-
-dumy_fifth_block = FifthBlock(dumy_first_block,dumy_forth_block)
-
 @pytest.mark.parametrize("component_name,variant,branch,expected1,code_comment_input_list,expected2",[
-("Idp","base+","P330",True,eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_1.txt")),True),
-("Obd","base+","P330",True,eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_2.txt")),False),
-("emm","base+","P330",True,eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_3.txt")),False),
-("ecum_callouts","base+","P330",True,eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_4.txt")),False),
+("Idp","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_1.txt")),True),
+# ("Obd","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_2.txt")),False),
+# ("emm","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_3.txt")),False),
+# ("ecum_callouts","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_4.txt")),False),
 
 ])
 def test_get_code_comments_stat(component_name,variant,branch,expected1,code_comment_input_list,expected2):
-	change_component_name(component_name,variant,branch)
+	change_component_name(component_name,'ID', ['base+', 'base-'], variant, branch)
 	#dumy_fifth_block.code_file = dumy_forth_block.code_file_both
-	#assert dumy_fifth_block.get_code_comments_stat() == expected1
+	#assert dumy_fifth_block.get_stat() == expected1
 	
 	
 	
 	dumy_fifth_block.code_comments = code_comment_input_list
-	#assert dumy_fifth_block.get_code_comments_stat() == expected2
-	#assert dumy_fifth_block.get_code_comments_stat() == eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_2.txt"))
-	#assert dumy_fifth_block.get_code_comments_stat() == eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_3.txt"))
+	#assert dumy_fifth_block.get_stat() == expected2
+	#assert dumy_fifth_block.get_stat() == eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_2.txt"))
+	#assert dumy_fifth_block.get_stat() == eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_3.txt"))
 	pass
 
 @pytest.mark.parametrize("component_name,variant,branch,input,",[
 
-("Idp","base+","P330",eval(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_all\\expected_1.txt'))),
-("Obd","base+","P330",eval(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_all\\expected_2.txt'))),
-("emm","base+","P330",eval(read_file('C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_all\\expected_3.txt'))),
+("Idp","base+","P330",eval(read_file('tests\\test_snippets\\test_get_code_comments_all\\expected_1.txt'))),
+# ("Obd","base+","P330",eval(read_file('tests\\test_snippets\\test_get_code_comments_all\\expected_2.txt'))),
+# ("emm","base+","P330",eval(read_file('tests\\test_snippets\\test_get_code_comments_all\\expected_3.txt'))),
 
 
 ])
 def test_get_code_comments_all(component_name,variant,branch,input):
-	change_component_name(component_name,variant,branch)
+	change_component_name(component_name,'ID', ['base+', 'base-'], variant, branch)
 	
-	#dumy_fifth_block.code_file = read_file('C:\\Dev\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_all\\code_1.c')
+	#dumy_fifth_block.code_file = read_file('tests\\test_snippets\\test_get_code_comments_all\\code_1.c')
 	dumy_fifth_block.code_comments = input
 	assert dumy_fifth_block.get_code_comments_all() == input
 	

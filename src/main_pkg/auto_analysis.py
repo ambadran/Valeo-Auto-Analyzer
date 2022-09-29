@@ -18,17 +18,18 @@ The Analysis step is made of 6 steps:
 
 ########################################################################################################################################
 # File Attributes
-__all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory']
+__all__ = ['read_assign_all_CSVs', 'create_blocks', 'Component', 'set_wanted_directory', 'export_csv', 'GoogleSheet']
 __author__ = 'AbdulRahman Mohsen Badran'
-__version__ = '0.2.1'
+__version__ = '1.0.0'
 
 ########################################################################################################################################
 
 
 
 ########################################################################################################################################
-### imports
-# Standard Library Modules
+###### imports ######
+
+### Standard Library Modules
 import csv
 import os
 from typing import List, Tuple, Dict
@@ -40,15 +41,44 @@ from copy import deepcopy
 import pickle
 from zipfile import ZipFile
 import subprocess
+import json
+from pprint import pprint
 
-# 3rd party library modules
+### 3rd party library modules
+# html2text
 try:
 	from html2text import html2text
-except ImportError:
+except ModuleNotFoundError:
 	print("\n\n Module 'html2text' not installed, Commencing the installation!\n\n")
 	os.system('pip3 install html2text')
 	print("\n Done Installing 'html2text' module!\n")
 	from html2text import html2text
+
+# pyperclip
+try:
+	import pyperclip
+except ModuleNotFoundError:
+	print("\n\n Module 'pyperclip' not installed, Commencing the installation!\n\n")
+	os.system('pip3 install pyperclip')
+	print("\n Done Installing 'pyperclip' module!\n")
+	import pyperclip
+
+# Google API libraries
+try: 
+	from google.auth.transport.requests import Request
+	from google.oauth2.credentials import Credentials
+	from google_auth_oauthlib.flow import InstalledAppFlow
+	from googleapiclient.discovery import build
+	from googleapiclient.errors import HttpError
+except ModuleNotFoundError:
+	print("\n\n Google Sheet API modules are not installed, Commencing the installation!\n\n")
+	os.system("pip3 install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib")
+	print("\n Installation is Done!!\n")
+	from google.auth.transport.requests import Request
+	from google.oauth2.credentials import Credentials
+	from google_auth_oauthlib.flow import InstalledAppFlow
+	from googleapiclient.discovery import build
+	from googleapiclient.errors import HttpError
 ########################################################################################################################################
 
 
@@ -57,7 +87,7 @@ except ImportError:
 ### constants
 
 global DISABLE_REPORT_SEARCH
-DISABLE_REPORT_SEARCH = True
+DISABLE_REPORT_SEARCH = False
 global MANUAL_CAT3_MODE_INPUT
 MANUAL_CAT3_MODE_INPUT = None
 global DEBUG_FUNC_DEFS
@@ -266,6 +296,28 @@ class WorkItem(ABC):
 			- checks if False in self.workitems_type_set
 		'''
 		return not (False in self.workitems_type_set.values())
+
+	@classmethod
+	def assign_validate_polarian_link(cls, my_polarian_web_link: str):
+		'''
+		makes sure the variable my_polarian_web_link is valid
+		Then assigns class variable
+		:param my_polarian_web_link: string of web link to my polarian openned in the wanted project
+		'''
+		try:
+			stop_ind = my_polarian_web_link.index("mypolarion")
+		
+		except ValueError:
+			raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
+
+		cls.my_polarian_web_link = my_polarian_web_link[:stop_ind]
+
+	@property
+	def polarian_link(self) -> str:
+		'''
+		return link to polarian web page of the workitem
+		'''
+		return f"{WorkItem.my_polarian_web_link}workitem?id={self.ID}"
 
 	def link(self, choosen_class: type):
 		'''
@@ -504,6 +556,14 @@ class Component(WorkItem):
 
 		if wrapper_stat:
 			wanted_component.wrapper_stat = True
+
+
+		#### linking all workitems together
+		print("Linking all Work Items together...")
+		wanted_component.link_internals_all()
+		# In case a component doens't have linkedworkitem
+		if wanted_component.is_linked:
+			print("Done linking\n\n")
 
 		return wanted_component
 
@@ -937,7 +997,7 @@ def goal_test_general(wanted_goal: Component.true_title):
 
 	return goal_test
 
-def successor_general(variant, branch, search_key):
+def successor_general(variant, branch, search_key, path_to_reports):
 	'''
 	Argument of DFS/BFS/A* Algorithms to return next possible moves
 	'''
@@ -1247,65 +1307,217 @@ class BlockTemplate(ABC):
 	Block Template Parent class for all blocks
 	'''
 
+	num_empty_rows_between_tables = 2
+
+	# Abstract class variables
+	analysis_name = "name of analysis"
+	stat = "Stat of This Type of Analysis"
+
 	def __init__(self, component):
 		self.component = component
 		super().__init__()
 
+	def get_link_text(self):
+		'''
+		return the text that should be printed in the place of the hyperlink for the sheets
+		'''
+		return f"Analysis of {self.analysis_name} for the SW component {self.component.true_title}.c"
+
 	@abstractmethod
-	def checklist_table(self) -> List[List]:
+	def get_checklist_table(self) -> List[List]:
 		"""
 		meant to create the lists that will be the argument to csv_writer (the rows in the csv file)
 		"""
 		pass
 
 	@abstractmethod
-	def analysis_table(self) -> List[List]:
+	def get_analysis_table(self) -> List[List]:
 		'''
 		
 		'''
 		pass
 
+	@abstractmethod
+	def merges(self) -> List[Dict]:
+		'''
+		call GoogleSheet.get_list_of_merges
+		customized merge for every table
+		'''
+		pass
+
+	@abstractmethod
+	def get_stat(self) -> bool:
+		'''
+		Should be either True or False or None
+		Indicate whether this analysis block for the wanted component passed or not
+		'''
+		pass
+
+	def get_str_analysis_table(self) -> List[List[str]]:
+		'''
+		makes sure all the values of the output table are of type string
+
+		makes sure all rows are of the same length, adds empty strings to rows with less values than others
+
+		This functions get the table ready for GoogleSheet API
+		'''
+		str_output = []
+		for row in self.analysis_table:
+			str_output.append([])
+			for value in row:
+				str_output[-1].append(str(value))
+
+		# finding maximum length of rows in this table
+		max_value = 0
+		for row in str_output:
+			current_len = len(row)
+			if current_len > max_value:
+				max_value = current_len
+
+		# appending empty strings in rows with lower len()
+		for row_ind in range(len(str_output)):
+			while len(str_output[row_ind]) < max_value:
+				str_output[row_ind].append('')
+
+		return str_output
+
+	@classmethod
+	@property
+	def table(cls):
+		'''
+		The cell that mentions that the next cell is the link to the analysis table
+		'''
+		return f"Link to {cls.analysis_name.replace('_', ' ')} report analysis: "
+
+	@staticmethod
+	def get_checklist_tables(blocks) -> List[List[str]]:
+		'''
+		collects checklist_table of all blocks
+		'''
+		all_rows = []
+		for ind, block in enumerate(blocks):
+			for row in block.checklist_table:
+				all_rows.append(row)
+
+			
+			# Add extra rows only in between tables
+			if ind+1 != len(blocks):
+				for _ in range(BlockTemplate.num_empty_rows_between_tables):
+					all_rows.append([])
+
+		return all_rows
+
+	@staticmethod
+	def get_analysis_tables(blocks) -> List[List[str]]:
+		'''
+		collects checklist_table of all blocks
+		'''
+		all_rows = []
+		for block in blocks[1:]:
+			for row in block.str_analysis_table():
+				all_rows.append(row)
+			
+			# Add extra rows only in between tables
+			if ind+1 != len(blocks):
+				for _ in range(BlockTemplate.num_empty_rows_between_tables):
+					all_rows.append([])
+
+		return all_rows
 
 class FirstBlock(BlockTemplate):
 	"""
 	1. Category of SW module for detailed software analysis.	
 	"""
 
-	analysis_status_formats_list = ["Not Started", "In Progress", "OK", "NOK"]
+	# possible analysis stats
+	class AnalysisStatus:
+		not_started = "Not Started"
+		in_progress = "In Progress"
+		ok = "OK"
+		nok = "NOK"
 
 	description = '1. Category of SW module for detailed software analysis.'
 	name = 'SW component : '
 	CAT_num = 'SW component CAT type : '
-	analysis_status_formats = 'SWC analysis status : '
+	stat = 'SWC analysis status : '
 	variant = 'Code variant : '
 	SW_release = 'Software release : '
 
-
-	def __init__(self, component: Component, variant, branch):
+	def __init__(self, component: Component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link):
 		self.component = component
-		self.name = component.title
+		self.name = component.true_title
 		self.CAT_num = component.CAT_num
-		#TODO: implement update function at the end
-		self.analysis_status_formats = FirstBlock.analysis_status_formats_list[1]  # In Progress
+		self.stat = self.get_stat()
 		self.variant = variant
 		self.SW_release = branch
 
+		self.paths_to_code = paths_to_code
+		self.path_to_reports = path_to_reports
+		self.path_to_tcc = path_to_tcc
+		self.my_polarian_web_link = my_polarian_web_link
 
-	def checklist_table(self) -> List[List]:
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		### no analysis_table for first block
+		# self.analysis_table = self.get_analysis_table()
+		# self.str_analysis_table = self.get_str_analysis_table()  
+
+	def get_checklist_table(self) -> List[List]:
 		output = []
 		output.append([FirstBlock.description])
-		output.append([FirstBlock.name, self.name+'.c']) #TODO: detect whether component is .h or .c
-		output.append([FirstBlock.CAT_num, self.CAT_num])
-		output.append([FirstBlock.analysis_status_formats, self.analysis_status_formats])
+		output.append([FirstBlock.name, self.name + '.c']) #TODO: detect whether component is .h or .c
+		output.append([FirstBlock.CAT_num, f"CAT{self.CAT_num}"])
+		output.append([FirstBlock.stat, self.stat])
 		output.append([FirstBlock.variant, self.variant])
 		output.append([FirstBlock.SW_release, self.SW_release])
 		return output
 
-	def analysis_table(self) -> None:
+	def get_analysis_table(self) -> None:
 		'''
 		There is no analysis table for the general description block
 		'''
 		pass
+
+	def merges(self, *args, **kwargs):
+		'''
+		no merges needed here as no analysis table for first block
+		'''
+		pass
+
+	def get_stat(self, blocks=None) -> bool:
+		'''
+		checks if all .stat attribute of each block and 
+		then accordingly returns the apropriate value from 
+		class variable analysis_status_formats_list
+
+		ASSUMES .stat of each block could either be True or False or None
+		if all are True
+
+		:param blocks: list of all the executed blocks
+		'''
+
+		# When there are no blocks yet!
+		if blocks == None:
+			return FirstBlock.AnalysisStatus.in_progress
+
+		for block in blocks:
+			if block.stat == False:
+				# Found False block
+				return FirstBlock.AnalysisStatus.nok
+		else:
+			for block in blocks:
+				if block.stat == None:
+					# not False but there is stat None
+					return FirstBlock.AnalysisStatus.in_progress
+			else:
+				# All stat are True
+				return FirstBlock.AnalysisStatus.ok
+
+	def update_analysis_stat(self, blocks) -> None:
+		'''
+		updates the .stat attribute
+		'''
+		self.stat = self.get_stat(blocks)
 
 	def __str__(self):
 		'''
@@ -1319,25 +1531,23 @@ class SecondBlock(BlockTemplate):
 	2. Code coverage analysis.	
 	"""
 
+	analysis_name = "code_coverage"
+	search_key = 'RTRT'
+
 	description = "2. Code coverage analysis.	"
 	report_found = "Does the SW component has code coverage report?"
 	report_path = "Link to code coverage report : "
-	code_coverage_stat = "Does the SW component has 100% coverage?"
+	stat = "Does the SW component has 100% coverage?"
 	code_coverage_table = "Link to code coverage report analysis : "
 
 	def __init__(self, first_block):
-		self.name = "code_coverage"
-		self.search_key = 'RTRT'
 		self.first_block = first_block
 		self.component = first_block.component
 		self.variant = first_block.variant
 		self.branch = first_block.SW_release
+		self.path_to_reports = first_block.path_to_reports
 
 		self.sole_files = []
-
-		# TEMPORARY FOR UNIT TESTING
-		global path_to_reports
-		path_to_reports = r"W:\DE\ERL1\RnD\serv\JBUILD\VW_MEB"
 
 		global DISABLE_REPORT_SEARCH
 		if DISABLE_REPORT_SEARCH:
@@ -1348,23 +1558,28 @@ class SecondBlock(BlockTemplate):
 		if not self.report:  # no report found
 			self.report_found = False
 			self.report_path = None
-			self.code_coverage_stat = None
-			self.code_coverage_table = None
+			self.stat = None
 		else:
 			self.report_found = True
 			self.code_coverage = self.get_entries()
-			self.code_coverage_stat = self.get_code_coverage_stat()
+			self.stat = self.get_stat()
+
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		self.analysis_table = self.get_analysis_table()  # initializes self.table_start_row_inds
+		self.str_analysis_table = self.get_str_analysis_table()
 				
-	def get_code_coverage_stat(self) -> float:
+	def get_stat(self) -> float:
 		"""
 		returns summary % of all code coverage (summary of summary)
 		"""
-		total = [0, 0]
-		for score in self.code_coverage['Summary'].items():
-			total[0] += score[1][0]
-			total[1] += score[1][1]
+		if self.code_coverage:
+			total = [0, 0]
+			for score in self.code_coverage['Summary'].items():
+				total[0] += score[1][0]
+				total[1] += score[1][1]
 
-		return total[0]/total[1]
+			return total[0]/total[1]
 
 	def get_entries(self):
 		"""
@@ -1389,7 +1604,7 @@ class SecondBlock(BlockTemplate):
 					print(f"{self.search_key} Report {self.sole_files[ind]} doesn't have 'Report coverage' in it!!!!!!!!!!")
 				else:
 					print(f"{self.search_key} Report doesn't have 'Report coverage' in it!!!!!!!!!!")
-		
+				return None
 
 		partitioned = [raw.split("**")[1:] for raw in report_coverage_part]  # breaking up the text in each html into values in a list [name, block, name, block, etc..]
 		
@@ -1513,14 +1728,14 @@ class SecondBlock(BlockTemplate):
 
 		return output	
 
-	def search_for_report(self, comp_true_name, variant, branch) -> List[str]:
+	def search_for_report(self) -> List[str]:
 		'''
 		Implements a backtracking algorithm (DFS) to search for report
 		return list of html file raw, (with the tags and everything)
 		(should be processed with html2text)
 		'''
 		output: List[str] = []
-		path = path_to_reports
+		path = self.path_to_reports
 		path = self.filter_backslash(path)
 
 		# making sure the path_to_reports exists
@@ -1538,14 +1753,13 @@ class SecondBlock(BlockTemplate):
 		# 7- search the .html {search_key} files for the name of the component
 		# 8- if found return, else recurse to the last valid step
 
-		# TEMPORARY FOR UNIT TESTING
-		goal_test = goal_test_general(comp_true_name)
-		successor = successor_general(variant, branch, self.search_key)
+		goal_test = goal_test_general(self.component.true_title)
+		successor = successor_general(self.variant, self.branch, self.search_key, self.path_to_reports)
 
 		report_path = DFS(path, goal_test, successor)
 
 		if report_path == None:
-			print(f"Didn't find {comp_true_name} {self.search_key} report\n\n")
+			print(f"Didn't find {self.component.true_title} {self.search_key} report\n\n")
 			return None
 
 		else:
@@ -1556,19 +1770,20 @@ class SecondBlock(BlockTemplate):
 				self.report_path = report_path
 				files = os.listdir(self.report_path)
 				for file in files:
-					if re.search(fr"{comp_true_name.lower()}_?\d*[\.]?c?.html", file.lower()):  # to avoid name_cfg, we only want name_x where x is a number
+					if re.search(fr"{self.component.true_title.lower()}_?\d*[\.]?c?.html", file.lower()):  # to avoid name_cfg, we only want name_x where x is a number
 						print(f"Found file {file}")
 						self.sole_files.append(file)
 						with open(f"{self.report_path}/{file}", 'r') as file:
 							output.append(file.read())
 			else:
+				# finish_ind = -(report_path[::-1].find('/')+1)  # index where the name of the html file starts
 				finish_ind = report_path.find('.zip')
 				zip_path = report_path[:finish_ind+4]
 				self.report_path = zip_path
 				with ZipFile(zip_path, 'r') as zipobj:
 					paths = zipobj.namelist()
 					for path in paths:
-						if re.search(fr"{comp_true_name.lower()}_?\d*[\.]?c?.html", path.lower()) and 'Cvi' not in path:
+						if re.search(fr"{self.component.true_title.lower()}_?\d*[\.]?c?.html", path.lower()) and 'Cvi' not in path:
 							print(f"Found file {zip_path}/{path}")
 							self.sole_files.append(path)
 							with zipobj.open(path, 'r') as p:
@@ -1577,7 +1792,6 @@ class SecondBlock(BlockTemplate):
 		return output
 
 	def find_report(self):
-	
 		"""
 		it will look in "input_files/reports/{self.variant}/{self.search_key}/self.component.true_title" first, if not found it will search otherwise it'll use it.
 
@@ -1602,11 +1816,11 @@ class SecondBlock(BlockTemplate):
 					break
 
 			else:  # Didn't find self.search_key report, Thus will commence searching for self.search_key in server files
-				print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{path_to_reports}\n")
-				output = self.search_for_report(self.component.true_title, self.variant, self.branch)
+				print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{self.path_to_reports}\n")
+				output = self.search_for_report()
 		else:   # Didn't find self.search_key report, Thus will commence searching for self.search_key in server files
-			print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{path_to_reports}\n")
-			output = self.search_for_report(self.component.true_title, self.variant, self.branch)
+			print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{self.path_to_reports}\n")
+			output = self.search_for_report()
 
 		if output == None:
 			return None
@@ -1621,31 +1835,45 @@ class SecondBlock(BlockTemplate):
 				path = path[:ind] + '/' + path[ind+1:]
 		return path
 
+	def merges(self, *args, **kwargs):
+		'''
+		no merges for code coverage analysis, no repeated data
+		'''
+		return []
 
-	def checklist_table(self):
+	def get_checklist_table(self) -> List[List[str]]:
 		output = []
 		output.append([SecondBlock.description])
 		output.append([SecondBlock.report_found, "Yes" if self.report_found else "No"])
 		paths = " , ".join([f"{self.report_path}/{file}" for file in self.sole_files])
 		output.append([SecondBlock.report_path, "" if not self.report_path else paths])
-		output.append([SecondBlock.code_coverage_stat, "" if self.code_coverage_stat is None else "Yes" if self.code_coverage_stat == 1.0 else "No"])
-		output.append([SecondBlock.code_coverage_table])
+		output.append([SecondBlock.stat, "" if self.stat is None else "Yes" if self.stat == 1.0 else "No"])
+		output.append([SecondBlock.table, self.get_link_text()])
 		return output
 
-	def analysis_table(self):
+	def get_analysis_table(self) -> List[List[str]]:
 		"""
 		for the link to table part; table of not covered function
 		"""
 		output = []
+
+		self.table_start_row_inds = [0]
+
 		SN = 1
 		output.append(["SN", "SW function that not fully covered in unit test coverage report",	"Comment", "Action"])
-		if self.report_found and self.code_coverage_stat != 1.0:
-			for func in self.not_covered_funcs.keys():
-				comment = ""
-				for attrib in self.not_covered_funcs[func].keys():
-					comment += f"{attrib}: {self.not_covered_funcs[func][attrib]}, "
-				output.append([SN, func, comment, ""])
-				SN += 1
+		try:
+			if self.code_coverage and self.stat != 1.0:
+				for func in self.not_covered_funcs.keys():
+					comment = ""
+					for attrib in self.not_covered_funcs[func].keys():
+						comment += f"{attrib}: {self.not_covered_funcs[func][attrib]}, "
+					output.append([SN, func, comment, ""])
+					SN += 1
+			else:
+				output.append(['1-', 'No Output'])
+		except AttributeError:
+			output.append(['1-', 'No Output'])
+
 		return output
 
 
@@ -1653,19 +1881,21 @@ class ThirdBlock(SecondBlock):
 	"""
 	3. Dead code analysis.	
 	"""
+
+	analysis_name = "dead_code"
+	search_key = 'QAC'
+
 	description = "3. Dead code analysis.	"
 	report_found = "Does the SW component has QAC report?"
 	report_path = "Link to QAC report : "
-	dead_code_stat = "Does all lines of is reachable/there is 'no dead' code?"
-	table_link = "Link to QAC report analysis : "
+	stat = "Does all lines of is reachable/there is 'no dead' code?"
 
 	def __init__(self, first_block):
-		self.name = "dead_code"
-		self.search_key = 'QAC'
 		self.first_block = first_block
 		self.component = first_block.component
 		self.variant = first_block.variant
 		self.branch = first_block.SW_release
+		self.path_to_reports = first_block.path_to_reports
 
 		self.sole_files = []
 
@@ -1678,33 +1908,38 @@ class ThirdBlock(SecondBlock):
 		if not self.report:  # no report found
 			self.report_found = False
 			self.report_path = None
-			self.dead_code_stat = None
-			self.dead_code_table = None
+			self.stat = None
 		else:
 			self.report_found = True
 			self.dead_code = self.get_entries()
-			self.dead_code_stat = self.get_dead_code_stat()
+			self.stat = self.get_stat()
 
-	def get_dead_code_stat(self) -> bool:
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		self.analysis_table = self.get_analysis_table()  # initializes self.table_start_row_inds
+		self.str_analysis_table = self.get_str_analysis_table()
+
+	def get_stat(self) -> bool:
 		'''
 		whether there are dead code or not
 		'''
-		return not not self.dead_code  # NEED TO BE FIXED
+		return not not self.get_entries()
 
-	def get_entries(self) -> bool:
+	def get_entries(self) -> List[QAC]:
 		'''
 		if unreachable in report, use helix QAC to generate QAC object 
 		and report them in table
 
 		FOR NOW, it will return a boolean of whether it found 'unreachable or not'
 		'''
-		for report in self.report:
-			if 'unreachable' in report:
-				print("QAC report has 'unreachable' in it!!!!!!!!!!!!!!!!!!!!!")
-				return True
-		else:
-			print("QAC report doesn't have 'unreachable' in it\n")
-			return False
+		if self.report != None:
+			for report in self.report:
+				if 'unreachable' in report:
+					print("QAC report has 'unreachable' in it!!!!!!!!!!!!!!!!!!!!!")
+					return True
+			else:
+				print("QAC report doesn't have 'unreachable' in it\n")
+				return False
 
 	def filter_backslash(self, path):
 		for ind in range(len(path)):
@@ -1712,21 +1947,38 @@ class ThirdBlock(SecondBlock):
 				path = path[:ind] + '/' + path[ind+1:]
 		return path
 
-	def checklist_table(self):
+	def merges(self, *args, **kwargs):
+		'''
+		no merges for QAC analysis, no repeated data
+		'''
+		return []
+
+	def get_checklist_table(self) -> List[List[str]]:
 		output = []
 		output.append([ThirdBlock.description])
 		output.append([ThirdBlock.report_found, "Yes" if self.report_found else "No"])
 		paths = " , ".join([f"{self.report_path}/{file}" for file in self.sole_files])
 		output.append([ThirdBlock.report_path, "" if not self.report_path else paths])
-		output.append([ThirdBlock.dead_code_stat, "" if self.dead_code_stat is None else "Yes" if not self.dead_code_stat else "No"])
-		output.append([ThirdBlock.table_link])
+		output.append([ThirdBlock.stat, "" if self.stat is None else "Yes" if not self.stat else "No"])
+		output.append([ThirdBlock.table, self.get_link_text()])
 		return output
 
-	def analysis_table(self):
+	def get_analysis_table(self) -> List[List[str]]:
+		'''
+		return analysis table
+		'''
 		output = []
+
+		self.table_start_row_inds = [0]
+
 		output.append(["SN", "SW function with dead code from QAC report.", "Comment", "Action"])
-		if self.dead_code_stat:
-			output.append(["'unreachable' found in QAC report!!!!"])
+		if self.stat:
+			output.append(['1-', "'unreachable' found in QAC report!!!!"])
+		elif self.report:
+			output.append(['1-', "No 'unreachable' in QAC report"])
+		else:
+			output.append(['1-', 'No Output'])
+
 		return output
 
 
@@ -1734,31 +1986,24 @@ class ForthBlock(BlockTemplate):
 	"""
 	4. Code switches identification analysis.	
 	"""
+
+	analysis_name = "code_switch"
+
 	description = "4. Code switches identification analysis."
-	code_switch_stat = "Does the SW component has code switches?"
+	stat = "Does the SW component has code switches?"
 	code_switch_necessity = "If SW component has code switch, Is this code switch required in VW requirements?"
-	code_switch_table = "Link to code switches analysis : "
-	def __init__(self, first_block):		
-		self.name = "code_switch"
+
+	def __init__(self, first_block):
 		self.first_block = first_block
 		self.component = first_block.component
 		self.variant = first_block.variant
+		self.paths_to_code = first_block.paths_to_code
+		self.path_to_tcc = first_block.path_to_tcc
 		
 		self.enabled_disabled_result: Dict[str: bool] = {}  # str= statetment e.g- (ASM==1), bool=enabled/disabled -> True/False
 
 		self.all_files = None
-		
-		# TEMPORARY FOR UNIT TESTING
-
-		global paths_to_code
-		paths_to_code = ['C:/VW/VW_MEB_Software/src/fw_cu/Components']
 		self.code_file_both = self.get_code_file(self.component.true_title)
-		
-		# TEMPORARY FOR UNIT TESTING
-
-		global path_to_tcc
-		path_to_tcc = 'C:\tcc'
-			
 		self.code_file, self.code_file_path = self.code_file_both
 		print(f"Will be reading code from file found at {self.code_file_path}\n\n")
 		self.include_files_to_search_in = {}
@@ -1779,22 +2024,31 @@ class ForthBlock(BlockTemplate):
 			self.code_switches = self.get_code_switches(self.code_switches_all)
 
 
-			self.code_switch_stat = not not self.code_switches
+			self.stat = self.get_stat()
 			self.code_switch_necessity = self.get_code_switch_necessity()
-			self.code_switch_table = "link the code_coverage_table csv file here"
 		else:  # code file is not found
 
 			self.code_switches_all = None
 			self.code_switches = None
 			self.func_defs = None
 
-			self.code_switch_stat = "Code not found, please insert file manually in input_files/code"
+			self.stat = "Code not found, please insert file manually in input_files/code"
 			self.code_switch_necessity = "Code not found, please insert file manually in input_files/code"
-			self.code_switch_table = "link the code_coverage_table csv file here"
+		
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		self.analysis_table = self.get_analysis_table()  # initializes self.table_start_row_inds
+		self.str_analysis_table = self.get_str_analysis_table()
+
+	def get_stat(self) -> bool:
+		'''
+		stat for ForthBlock
+		'''
+		return not not self.code_switches
 
 	def get_code_switch_necessity(self) -> bool:
 		"""
-		Hamza told me don't do it, FGL is responsible for it
+		hamza told me don't do it, FGL is responsible for it
 		"""
 		pass
 
@@ -1903,8 +2157,7 @@ class ForthBlock(BlockTemplate):
 
 
 			# executing and creating a log file with the output :)
-			global path_to_tcc
-			command = f"powershell \"{path_to_tcc}\\tcc.exe -run internals\\c_files\\test.c"
+			command = f"powershell \"{self.path_to_tcc}\\tcc.exe -run internals\\c_files\\test.c"
 			result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT).decode().strip()
 			try:  # assumes output are only numbers seperated by \r, \n, ' '
 				if result != '':
@@ -2015,12 +2268,6 @@ class ForthBlock(BlockTemplate):
 		output_lines.extend(text_lines[current_end_line_num:])
 
 		output = "\n".join(output_lines)
-		
-		#Mostafa
-		with open('fileWithNo_code_switches','w') as file:
-			for line in output_lines:
-				file.write(line)
-
 
 		return output
 		
@@ -2138,13 +2385,11 @@ class ForthBlock(BlockTemplate):
 		:param passive_search_mode: normally an error is raised if file not found, else only a print() will be executed
 		return "<content of .c file", "<path to file>"
 		"""
-		# Go to code directory
-		global paths_to_code
 
 		# getting all_files hashed, only once
 		if self.all_files == None:
 			self.all_files = {}
-			for path in paths_to_code:
+			for path in self.paths_to_code:
 				path_to_serach_in = self.filter_backslash(path)
 				walk_output = os.walk(path_to_serach_in)
 				files_not_readable_yet = ['.xlsm', '.png', '.xlsx', '.xls', '.zip', '.docx', '.doc', '.jar', '.gif', '.exe', '.dll', '.bmp', '.lzma', '.xz', '.pdf', '.xdm', '.dat', '.lib', '.tdb', '.a', '.elf', '.jbc', '.pof', '.err']
@@ -2192,9 +2437,9 @@ class ForthBlock(BlockTemplate):
 			result = None
 			path = None
 			if passive_search_mode:
-				print(f"\nCouldn't find {name} file in {paths_to_code}\n")
+				print(f"\nCouldn't find {name} file in {self.paths_to_code}\n")
 			else:
-				raise FileNotFoundError(f"\n\nCouldn't find {name} file in {paths_to_code}")
+				raise FileNotFoundError(f"\n\nCouldn't find {name} file in {self.paths_to_code}")
 
 		return result, path
 
@@ -2458,15 +2703,15 @@ class ForthBlock(BlockTemplate):
 
 					func_defs_raw.append((raw_func_def_code, start_line_num, end_line_num, body))
 				
-				############## FOR DEBUGGING ONLY No.6 ###############
-				else:
-					# if wanted function is found from No.1 debugging
-					# put it here to make sure this step worked
-					if possibly_a_func_counter == 25:
-						print("reached herere, Debug No. 6 !!!!!!")
-						print("THE FUNCTION IS WRONGLY FILTERED!!!!!")
-						print(re.findall(unwanted_pattern, possibly_a_func_def))
-				######################################################
+				# ############## FOR DEBUGGING ONLY No.6 ###############
+				# else:
+				# 	# if wanted function is found from No.1 debugging
+				# 	# put it here to make sure this step worked
+				# 	if possibly_a_func_counter == 25:
+				# 		print("reached herere, Debug No. 6 !!!!!!")
+				# 		print("THE FUNCTION IS WRONGLY FILTERED!!!!!")
+				# 		print(re.findall(unwanted_pattern, possibly_a_func_def))
+				# ######################################################
 			########################################################################################
 
 
@@ -2613,16 +2858,31 @@ class ForthBlock(BlockTemplate):
 
 		return func_defs
 
-	def checklist_table(self):
+	def merges(self, *args, **kwargs):
+		'''
+		no merges for code switch analysis, no repeated data
+		'''
+		return []
+
+	def get_checklist_table(self) -> List[List[str]]:
+		'''
+		Checklist table
+		'''
 		output = []
 		output.append([ForthBlock.description])
-		output.append([ForthBlock.code_switch_stat, "" if self.code_switch_stat is None else "Yes" if self.code_switch_stat else "No"])
+		output.append([ForthBlock.stat, "" if self.stat is None else "Yes" if self.stat else "No"])
 		output.append([ForthBlock.code_switch_necessity, "" if self.code_switch_necessity is None else "Yes" if self.code_switch_necessity else "No"])
-		output.append([ForthBlock.code_switch_table])
+		output.append([ForthBlock.table, self.get_link_text()])
 		return output
 
-	def analysis_table(self):
+	def get_analysis_table(self) -> List[List[str]]:
+		'''
+		Analysis table
+		'''
 		output = []
+
+		self.table_start_row_inds = [0]
+
 		output.append(["SN", "SW function with code switch.", "Code switch", "Code switch type", "Comment", "Action"])
 		if self.code_switches:
 			for sn, code_switch in enumerate(self.code_switches):
@@ -2636,11 +2896,13 @@ class FifthBlock(BlockTemplate):
 	"""
 	5. Code comment for un-required code analysis.		
 	"""
+
+	analysis_name = "code_comment"
+
 	description = "5. Code comment for un-required code analysis.	"
-	code_comment_stat = "Does the SW component has comment points to un-intended code?"
-	code_comment_table = "Link to code comment analysis : "
+	stat = "Does the SW component has comment points to un-intended code?"
+	
 	def __init__(self, first_block, forth_block):
-		self.name = "code_comment"
 		self.first_block = first_block
 		self.component = self.first_block.component
 		self.variant = self.first_block.variant
@@ -2656,16 +2918,21 @@ class FifthBlock(BlockTemplate):
 			
 			self.code_comments = self.get_code_comments()
 
-			self.code_comment_stat = self.get_code_comments_stat()
+			self.stat = self.get_stat()
 			self.code_comment_table = "link the code_coverage_table csv file here"
 		else:  # code file is not found
 
 			self.code_comments = None
 
-			self.code_comment_stat = "Code not found, please insert file manually in input_files/code/code_file"
+			self.stat = "Code not found, please insert file manually in input_files/code/code_file"
 			self.code_comment_table = "link the code_coverage_table csv file here"
 
-	def get_code_comments_stat(self):
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		self.analysis_table = self.get_analysis_table()  # initializes self.table_start_row_inds
+		self.str_analysis_table = self.get_str_analysis_table()
+
+	def get_stat(self) -> bool:
 		'''
 		True if it finds either a problematic function comment or a comment with a problematic keyword ['todo', 'fixme', etc..]
 		False if nocomments found at all including no non-determinable comments
@@ -2849,7 +3116,7 @@ class FifthBlock(BlockTemplate):
 
 
 		# Filtering all normal comments
-		non_problematic_patterns = ["********", "================", "\\defgroup", "do nothing", "series_production", "a2l_type", "@{", "@}", '@@']  # REMEMBER** write the keywords in non-capital letters as all comments are .lower() before testing
+		non_problematic_patterns = ["********", "================", "\\defgroup", "do nothing", "series_production", "a2l_type", "@{", "@}", '@@', 'PRQA']  # REMEMBER** write the keywords in non-capital letters as all comments are .lower() before testing
 		remaining_undecided_comments = []
 		for code_comment in non_func_comments_filtered:
 			for pattern in non_problematic_patterns:
@@ -2876,19 +3143,34 @@ class FifthBlock(BlockTemplate):
 
 		return result
 
-	def checklist_table(self):
+	def merges(self, *args, **kwargs):
+		'''
+		no merges for code comment analysis, no repeated data
+		'''
+		return []
+
+	def get_checklist_table(self) -> List[List[str]]:
+		'''
+		Checklist table
+		'''
 		output = []
 		output.append([FifthBlock.description])
-		output.append([FifthBlock.code_comment_stat, "" if self.code_comment_stat is None else "Yes" if self.code_comment_stat else "No"])
-		output.append([FifthBlock.code_comment_table])
+		output.append([FifthBlock.stat, "" if self.stat is None else "Yes" if self.stat else "No"])
+		output.append([FifthBlock.table, self.get_link_text()])
 		return output
 
-	def analysis_table(self):
+	def get_analysis_table(self) -> List[List[str]]:
+		'''
+		Analysis Table
+		'''
 		output = []
+
+		self.table_start_row_inds = [0]
+
 		output.append(["SN", "SW function with code comment.", "Code comment", "Code comment type", "Comment", "Action"])
 		if self.code_comments:
 			for sn, code_comment in enumerate(self.code_comments):
-				if code_comment.func_type:
+				if code_comment.func_type: #TODO: this line doesn't work anymore!!!!
 					comment = f"This function description comment doesn't match the function it's descriping at line either by name or param: {code_comment.start_line_num}"
 					output.append([sn+1, code_comment.function, code_comment.comment, code_comment.type_, comment, ""])
 				elif code_comment.comment == None:
@@ -2903,12 +3185,13 @@ class SixthBlock(BlockTemplate):
 	"""
 	6. Detailed design contained function analysis.	
 	"""
-	description = '6. Detailed design contained function analysis.	'
-	detailed_design_stat = "Does all the DD functions required in the SW component by SW requirements?"
-	detailed_design_table = "Link to DD analysis : "
-	def __init__(self, first_block, fifth_block):
-		self.name = 'detailed_design'
 
+	analysis_name = 'detailed_design'
+
+	description = '6. Detailed design contained function analysis.	'
+	stat = "Does all the DD functions required in the SW component by SW requirements?"
+
+	def __init__(self, first_block, fifth_block):
 		self.first_block = first_block
 		self.component = self.first_block.component
 		self.variant = self.first_block.variant
@@ -2922,10 +3205,14 @@ class SixthBlock(BlockTemplate):
 		self.dd_no_comp_matches = None
 		self.detailed_design = self.get_detailed_design()
 
-		self.detailed_design_stat = self.get_detailed_design_stat()
-		self.detailed_design_table = "link the detailed_design_table csv file here"
+		self.stat = self.get_stat()
 
-	def get_detailed_design_stat(self) -> bool:
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		self.analysis_table = self.get_analysis_table()  # initializes self.table_start_row_inds
+		self.str_analysis_table = self.get_str_analysis_table()
+
+	def get_stat(self) -> bool:
 		'''
 		True if it didn't find any non 'Yes' comments, aka no problematic detailed_designs
 		'''
@@ -3037,18 +3324,34 @@ class SixthBlock(BlockTemplate):
 
 		return self.component.detailed_designs
 
-	def checklist_table(self):
+	def merges(self, starting_row_num, sheet_id):
+		'''
+		For DD analysis table need to merge SN, DD ID and DD name columns
+		as they do sometimes get repeated becaues one DD might have more 
+		than one requirement or diagnostic
+
+		:return: list of merge data (gridRange Json data) that will be put in .extend in the all_merges list 
+		when creating it in GoogleSheet.get_all_analysis_sheet_merges()
+		'''
+		merge_data = GoogleSheet.get_merges_list(self.str_analysis_table, [0, 1, 2], starting_row_num, sheet_id)
+
+		return merge_data
+
+	def get_checklist_table(self):
 		output = []
 		output.append([SixthBlock.description])
-		output.append([SixthBlock.detailed_design_stat, "" if self.detailed_design_stat is None else "Yes" if self.detailed_design_stat else "No"])
-		output.append([SixthBlock.detailed_design_table])
+		output.append([SixthBlock.stat, "" if self.stat is None else "Yes" if self.stat else "No"])
+		output.append([SixthBlock.table, self.get_link_text()])
 		return output
 
-	def analysis_table(self):
+	def get_analysis_table(self):
 		output = []
 		
 		#### MAIN TABLE	####
-		output.append(["SN", "D.D function ID", "D.D function", "Linked SW requirement", "SW Req Id", "Is DD function against SW requiremnet required by VW?", "variant"])
+		output.append(["SN", "D.D function ID", "D.D function", "Linked SW requirement", "SW Requirement ID", "Is DD function against SW requiremnet required by VW?", "variant", "Comments"])
+		
+		self.table_start_row_inds = [0]
+
 		counter = 1
 		if self.detailed_design:
 			for dd in self.detailed_design:
@@ -3061,11 +3364,15 @@ class SixthBlock(BlockTemplate):
 				if dd.check_req_diag():
 
 					for req in dd.requirements:
-						output.append([counter, dd.ID, dd.title, req.title, req.ID, dd.comment, f"Applicable for: {req.variant}", extra_column,
-							'Please remove the next two cells after manually checking', dd.description, req.description])
+						# output.append([counter, dd.ID, dd.title, req.title, req.ID, dd.comment, f"Applicable for: {req.variant}", extra_column,
+						# 	'Please remove the next two cells after manually checking', dd.description, req.description])
+						output.append([counter, dd.ID, dd.title, req.title, req.ID, dd.comment, f"Applicable for: {req.variant}", extra_column])
+
 					for diag in dd.diagnostics:
-						output.append([counter, dd.ID, dd.title, diag.title, diag.ID, dd.comment, f"Applicable for: {diag.variant}", extra_column,
-							'Please remove the next two cells after manually checking',dd.description ,diag.description])
+						# output.append([counter, dd.ID, dd.title, diag.title, diag.ID, dd.comment, f"Applicable for: {diag.variant}", extra_column,
+						# 	'Please remove the next two cells after manually checking',dd.description ,diag.description])
+						output.append([counter, dd.ID, dd.title, diag.title, diag.ID, dd.comment, f"Applicable for: {diag.variant}", extra_column])
+
 				else:
 					output.append([counter, dd.ID, dd.title, '', '', dd.comment, '', extra_column])
 				
@@ -3078,7 +3385,11 @@ class SixthBlock(BlockTemplate):
 		#### EXTRA TABLES ####
 		# DDS that doesn't have a component attached to
 		if self.dd_no_comp_matches:
+
 			output.append(["detailed_designs that doesn't have component attached to it"])
+			
+			self.table_start_row_inds.append(len(output))
+
 			output.append(['No.', 'Name', 'ID'])
 			counter = 1
 			for dd in self.dd_no_comp_matches:
@@ -3087,7 +3398,11 @@ class SixthBlock(BlockTemplate):
 
 		# DDs that doesn't have a function in code
 		if self.dd_func_name_unmatch:
+
 			output.append(["Functions that doesn't have detailed design in polarian"])
+
+			self.table_start_row_inds.append(len(output))
+
 			output.append(['No.', 'Name', 'Comment'])
 			counter = 1
 			for func in self.dd_func_name_unmatch:
@@ -3096,7 +3411,11 @@ class SixthBlock(BlockTemplate):
 
 		# Functions in code that doesn't have a DD
 		if self.func_dd_name_unmatch:
+			
 			output.append(["detailed_designs that doesn't have a function implementation in code "])
+			
+			self.table_start_row_inds.append(len(output))
+			
 			output.append(['No.', "Name", "ID", "Comment"])
 			counter = 1
 			for dd in self.func_dd_name_unmatch:
@@ -3105,7 +3424,11 @@ class SixthBlock(BlockTemplate):
 
 		# Requirements that doesn't have any DD attached to it
 		if self.req_with_no_dd:
+
 			output.append(["Requirements that doesn't have detailed designs attached to it"])
+
+			self.table_start_row_inds.append(len(output))
+
 			output.append(['No.', 'Name', "ID"])
 			counter = 1
 			for req in self.req_with_no_dd:
@@ -3114,7 +3437,11 @@ class SixthBlock(BlockTemplate):
 
 		# Diagnostics that doesn't have any DD attached to it
 		if self.diag_with_no_dd:
+
 			output.append(["Diagnostics that doesn't have detailed designs attached to it"])
+
+			self.table_start_row_inds.append(len(output))
+
 			output.append(['No.', 'Name', "ID"])
 			counter = 1
 			for diag in self.diag_with_no_dd:
@@ -3128,12 +3455,13 @@ class SeventhBlock(BlockTemplate):
 	"""
 	7. Code review against SW requirements analysis.	
 	"""
-	description = '7. Code review against SW requirements analysis.	'
-	code_review_stat = 'Does the code of the SW component has un-inteneded code versus SW requirements?'
-	code_review_table = 'Link to complete code review against software requirements analysis : '
-	def __init__(self, first_block, fifth_block, sixth_block):
-		self.name = 'code_review'
 
+	analysis_name = 'code_review'
+
+	description = '7. Code review against SW requirements analysis.	'
+	stat = 'Does the code of the SW component has un-inteneded code versus SW requirements?'
+	
+	def __init__(self, first_block, fifth_block, sixth_block):
 		self.first_block = first_block
 		self.component = first_block.component
 		self.variant = first_block.variant
@@ -3144,8 +3472,12 @@ class SeventhBlock(BlockTemplate):
 
 		self.code_reviews = self.get_code_reviews()
 
-		self.code_review_stat = self.get_code_reivew_stat()
-		self.code_review_table = "link the code_review csv file here"
+		self.stat = self.get_stat()
+
+		# output tables
+		self.checklist_table = self.get_checklist_table()
+		self.analysis_table = self.get_analysis_table()  # initializes self.table_start_row_inds
+		self.str_analysis_table = self.get_str_analysis_table()
 
 	def get_code_reviews(self) -> List[CodeReview]:
 		"""
@@ -3182,7 +3514,7 @@ class SeventhBlock(BlockTemplate):
 
 		return code_reviews
 
-	def get_code_reivew_stat(self) -> bool:
+	def get_stat(self) -> bool:
 		"""
 		False if it finds a problematic code review e.g-(one that has no DD), else None as script can't test descriptions
 		"""
@@ -3190,19 +3522,56 @@ class SeventhBlock(BlockTemplate):
 		# 	if not code_review.state:
 		# 		return False
 		# else:
-		return None
+		return None  # script can't (and will probably never) be able to do complete code review!
 
-	def checklist_table(self):
+	def merges(self, starting_row_num: int, sheet_id: int) -> List[Dict]:
+		'''
+		For DD analysis table need to merge SN, DD ID and DD name columns
+		as they do sometimes get repeated becaues one DD might have more 
+		than one requirement or diagnostic
+
+		:param starting_row_num: the row the table starts from
+		:sheet_id: for google sheet api, must give sheet id
+
+		:return: list of merge data (gridRange Json data) that will be put in .extend in the all_merges list 
+		when creating it in GoogleSheet.get_all_analysis_sheet_merges()
+		'''
+		all_merge_data: List[Dict] = GoogleSheet.get_merges_list(self.str_analysis_table, [0, 2], starting_row_num, sheet_id)
+
+		# getting the merges for local global column
+		# we can't use the normal methods because two consecutive functions could be local
+		# thus the merge function will merge all
+		# The solution is to read the previous merges and assign new merges on the second col
+		# depending on the previous merges (of first column)
+		new_merge_data_list = []
+		for merge_data in all_merge_data:
+			
+			# copy from the first column first, Don't want duplicate merge data!
+			if merge_data['startColumnIndex'] != 0:
+				break
+
+			new_merge_data = deepcopy(merge_data)
+			new_merge_data['startColumnIndex'] = 1
+			new_merge_data['endColumnIndex'] = 2
+			new_merge_data_list.append(new_merge_data)
+
+		all_merge_data.extend(new_merge_data_list)
+
+		return all_merge_data
+
+	def get_checklist_table(self):
 		output = []
 		output.append([SeventhBlock.description])
-		output.append([SeventhBlock.code_review_stat, "" if self.code_review_stat is None else "No" if self.code_review_stat else "Yes"])
-		output.append([SeventhBlock.code_review_table])
+		output.append([SeventhBlock.stat, "" if self.stat is None else "No" if self.stat else "Yes"])
+		output.append([SeventhBlock.table, self.get_link_text()])
 		return output
 
-	def analysis_table(self):
+	def get_analysis_table(self):
 		output = []
-		output.append(["SN", "Function type", "Function", "Brief", "Covered SW Requirement", "SW req ID", "Issues", "Requirement type", "Requirement brief", "Does the code covers the SW requirements only?"])
+		output.append(["SN", "Function type", "Function", "Brief", "Covered SW Requirement", "SW Requirement ID", "Issues", "Requirement type", "Requirement brief", "Does the code covers the SW requirements only?"])
 		
+		self.table_start_row_inds = [0]
+
 		counter = 1
 		for code_review in self.code_reviews:
 
@@ -3262,7 +3631,11 @@ class SeventhBlock(BlockTemplate):
 
 		# for repeated functions
 		if self.repeated_functions:
+
 			output.append(['Functions initiated more than once in code'])
+			
+			self.table_start_row_inds.append(len(output))
+
 			output.append(['SN', 'Name', 'Line number'])
 			counter = 1
 			for func in self.repeated_functions:
@@ -3277,7 +3650,7 @@ class SeventhBlock(BlockTemplate):
 ########################################################################################################################################
 #### Main Functions
 
-# External and Internal (put in __all__)
+# External and Internal (put in __all__) Functions
 def set_wanted_directory(homedir_in):
 	'''
 	Meant to be called from a user script, e.g- a CLI
@@ -3301,42 +3674,43 @@ def read_assign_all_CSVs():
 
 	Interface.get_all_from_csv(assign_class_variable=True, hash_key='ID')
 
-def analyze_component(wanted_component=None, variant=None, branch=None, paths_to_code_in=None, path_to_reports_in=None, path_to_tcc_in=None):
-	'''
-	Executes the steps to analyze the wanted component
-	'''
+def create_blocks(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link):
+	"""
+	return list of blocks
+	"""
 
-	# making paths global so it can be accessable anywhere, when running this function from another file
-	global paths_to_code
-	if paths_to_code_in:
-		paths_to_code = paths_to_code_in
+	blocks = []
+	if component.CAT_num == 1:	
+		blocks.append(FirstBlock(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
+		blocks.append(SixthBlock(blocks[0], blocks[4]))
+		blocks.append(SeventhBlock(blocks[0], blocks[4], blocks[5]))
 
-	global path_to_reports
-	if path_to_reports_in:
-		path_to_reports = path_to_reports_in
+	elif component.CAT_num == 2:
+		blocks.append(FirstBlock(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
+		blocks.append(SixthBlock(blocks[0], blocks[4]))
 
-	global path_to_tcc
-	if path_to_tcc_in:
-		path_to_tcc = path_to_tcc_in
+	elif component.CAT_num == 3:
+		blocks.append(FirstBlock(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
 
-	##### Executing the script ######
-	# Step 1: link all workitems together
-	print("Linking all Work Items together...")
-	wanted_component.link_internals_all()
-	# In case a component doens't have linkedworkitem
-	if wanted_component.is_linked:
-		print("Done linking\n\n")
+	# Updating first block analysis_stat attribute after running all blocks :)
+	blocks[0].update_analysis_stat(blocks)
 
-	# Step 2: Run all bocks
-	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
-	blocks = create_blocks(wanted_component, variant, branch)
-	print('\nAnalysis is Completed Successfully!!!\n')
-
-	# Step 3: Export outputs
-	export_csv(blocks)
+	return blocks
 
 # Internal Only Functions
-def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, path_to_reports_in, path_to_tcc_in):
+def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, path_to_reports_in, path_to_tcc_in, my_polarian_web_link_in):
 	'''
 	Does all the steps necessary to start analyzing a component
 	Meant to be used here in this file internally for rapid debugging
@@ -3348,14 +3722,26 @@ def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, pa
 	print("Reading polarian csv outputs and parsing data....")
 	read_assign_all_CSVs()
 
-	# get wanted component object
+	# get wanted component object and linking it to all linked workitems
 	print(f"Finding Component: {component_name} in Polarian\n")
 	wanted_component = Component.get_component(component_name, CAT_num, branch)
 	if wanted_component.found_in_polarian:
 		print(f"Found Component: {wanted_component.true_title} in Polarian!\n")
 
 	### Commencing the Analysis
-	analyze_component(wanted_component, variant, branch, paths_to_code, path_to_reports, path_to_tcc)
+	# Running all bocks
+	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
+	blocks = create_blocks(wanted_component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link)
+	print('\nAnalysis is Completed Successfully!!!\n')
+
+	# Export outputs as CSVs
+	export_csv(blocks)
+
+	# Export output in a Google Sheet
+	WorkItem.assign_validate_polarian_link(my_polarian_web_link_in)
+	google_sheet = GoogleSheet(blocks)
+	google_sheet.copy_link_to_clipboard()
+	google_sheet.save_link_in_txt_file()
 
 def set_wanted_directory_internal(homedir_in):
 	'''
@@ -3364,54 +3750,6 @@ def set_wanted_directory_internal(homedir_in):
 	global homedir
 	homedir = homedir_in
 	os.chdir(homedir)
-
-def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_reports_in=None, path_to_tcc_in=None):
-	"""
-	return list of blocks
-	"""
-
-	global paths_to_code
-	if paths_to_code_in:
-		paths_to_code = paths_to_code_in
-
-	global path_to_reports
-	if path_to_reports_in:
-		path_to_reports = path_to_reports_in
-
-	global path_to_tcc
-	if path_to_tcc_in:
-		path_to_tcc = path_to_tcc_in
-
-	print(f"\n######################################\nCreating blocks for Variant:{variant}\n")
-
-	blocks = []
-	if component.CAT_num == 1:	
-		blocks.append(FirstBlock(component, variant, branch))
-		blocks.append(SecondBlock(blocks[0]))
-		blocks.append(ThirdBlock(blocks[0]))
-		blocks.append(ForthBlock(blocks[0]))
-		blocks.append(FifthBlock(blocks[0], blocks[3]))
-		blocks.append(SixthBlock(blocks[0], blocks[4]))
-		blocks.append(SeventhBlock(blocks[0], blocks[4], blocks[5]))
-
-	elif component.CAT_num == 2:
-		blocks.append(FirstBlock(component, variant, branch))
-		blocks.append(SecondBlock(blocks[0]))
-		blocks.append(ThirdBlock(blocks[0]))
-		blocks.append(ForthBlock(blocks[0]))
-		blocks.append(FifthBlock(blocks[0], blocks[3]))
-		blocks.append(SixthBlock(blocks[0], blocks[4]))
-
-	elif component.CAT_num == 3:
-		blocks.append(FirstBlock(component, variant, branch))
-		blocks.append(SecondBlock(blocks[0]))
-		blocks.append(ThirdBlock(blocks[0]))
-		blocks.append(ForthBlock(blocks[0]))
-		blocks.append(FifthBlock(blocks[0], blocks[3]))
-
-	print("Done creating all Blocks\n")
-
-	return blocks
 ########################################################################################################################################
 
 
@@ -3430,10 +3768,10 @@ def export_csv(blocks: List):
 		
 		print("Exporting Main Analysis Sheet")
 		for block in blocks:
-			for row in block.checklist_table():
+			for row in block.checklist_table:
 				csv_writer.writerow(row)
-			csv_writer.writerow([])
-			csv_writer.writerow([])
+			for _ in range(BlockTemplate.num_empty_rows_between_tables):
+				csv_writer.writerow([])
 
 	#exporting the analysis template
 	Path(f"output/csv/{blocks[0].component.true_title}").mkdir(parents=True, exist_ok=True)
@@ -3442,39 +3780,869 @@ def export_csv(blocks: List):
 		
 		print("Exporting Analysis tables Sheet")
 		for block in blocks[1:]:
-			for row in block.analysis_table():
+			for row in block.analysis_table:
 				csv_writer.writerow(row)
-			csv_writer.writerow([])
-			csv_writer.writerow([])
+			for _ in range(BlockTemplate.num_empty_rows_between_tables):
+				csv_writer.writerow([])
 
 	# exporting the internal files for each block
 	Path(f"output/csv/{blocks[0].component.true_title}/inner_tables").mkdir(parents=True, exist_ok=True)
 	for block in blocks[1:]:
-		with open(f"output/csv/{blocks[0].component.true_title}/inner_tables/{block.name}_{blocks[0].name}_{blocks[0].variant}.csv", mode='w', encoding='utf-8') as csv_file:
+		with open(f"output/csv/{blocks[0].component.true_title}/inner_tables/{block.analysis_name}_{blocks[0].name}_{blocks[0].variant}.csv", mode='w', encoding='utf-8') as csv_file:
 			csv_writer = csv.writer(csv_file, delimiter=',', lineterminator='\n')
-			print(f"Exporting detail table for {block.name}")
-			for row in block.analysis_table():
+			print(f"Exporting detail table for {block.analysis_name}")
+			for row in block.analysis_table:
 				csv_writer.writerow(row)
 
 
 	print(f"Exported CSV files for {blocks[0].variant}\n######################################\n\n")
 
-
-class GoogleSheet:  # Awaiting Permission :(
+class GoogleSheet:  
 	'''
+	Class to manage the creation and modification of google sheet exports
+	'''
+
+	checklist_sheet_name = 'Checklist'
+	checklist_sheet_id = 1670875314
+	checklist_sheet_index = 0
 	
-	'''
-	def __init__(self):
+	analysis_sheet_name = 'Analysis'
+	analysis_sheet_id = 62458818
+	analysis_sheet_index = 1
+
+	# If modifying these scopes, delete the file token.json.
+	SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+
+	path_to_json_files = 'input_files/json_files/'
+
+	colors = {
+		'yellow': {'blue': 0.6, 'green': 0.8980392, 'red': 1},
+
+		# 'grey': {'blue': 0.6, 'green': 0.8980392, 'red': 1},  #TODO:
+
+		'black': {'blue': 0, 'green': 0, 'red': 0},
+
+		'white': {'blue': 1, 'green': 1, 'red': 1},
+
+		'light_blue': {'blue': 0.8, 'green': 0.33333334, 'red': 0.06666667}
+	}
+
+	def __init__(self, blocks: List):
+		'''
+		creating the google sheet
+		'''
+		self.blocks = blocks
+
+		# self.create_checklist_sheet()
+		self.spreadsheetId = self.create()
+
+	@property
+	def link(self):
+		'''
+		return link to google sheet directly
+		'''
+		try:
+			return f"https://docs.google.com/spreadsheets/d/{self.spreadsheetId}/edit#gid=0"
+		except AttributeError:
+			return ''
+
+	def save_link_in_txt_file(self):
+		'''
+		creates a .txt file and saves the sheet link in it
+		'''
+		Path('output/GoogleSheets/').mkdir(parents=True, exist_ok=True)
+		with open(f"output/GoogleSheets/{self.blocks[0].component.true_title}_{self.blocks[0].SW_release}_GoogleSheet_link.txt", 'w') as file:
+			file.write(self.link)
+			print(f"Saved GoogleSheet link in 'output/GoogleSheets/{self.blocks[0].component.true_title}_{self.blocks[0].SW_release}_GoogleSheet_link.txt' file!")
+
+	def copy_link_to_clipboard(self):
+		'''
+		uses pyperclip to copy link to spreadsheet to clipboard
+		'''
+		if self.link != '':
+			pyperclip.copy(self.link)
+			print("\nCopied link to created sheet in clipboard!\n")
+
+	@staticmethod
+	def get_transpose(rows: List[List]) -> List[List]:
+		'''
+		gets the transpose of a table
+		'''
+		transpose = []
+		for row_ind, row in enumerate(rows):
+			for value_ind, value in enumerate(row):
+				if len(transpose) < (value_ind+1):
+					transpose.append([])
+				transpose[value_ind].append(value)
+
+		return transpose
+
+	@staticmethod
+	def convert_num_to_letters(num: int) -> str:
+		'''
+		converts number of column to letter notation
+		e.g  24 -> X
+			 27 -> AA
+		'''
+		
+		alphabets = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		len_alphabets = len(alphabets)
+		alphabet_mapping = {n+1: alphabets[n] for n in range(len_alphabets)}
+
+		result = ""
+		
+		if num <= 0:
+			raise ValueError("Column numbers start from 1 onwards only!")
+
+		while num > len_alphabets:
+			original_num = deepcopy(num)
+			num = num // len_alphabets
+			reminder = original_num % len_alphabets
+			if reminder == 0:
+				reminder = 26
+				num = num - 1
+			result += alphabet_mapping[reminder]
+
+		original_num = deepcopy(num)
+		result += alphabet_mapping[original_num]
+
+		return result[::-1]
+
+	@staticmethod
+	def get_A1_notation(table: List[List], sheet_title=None, start_col=1, start_row=1) -> Tuple[str, int]:
+		'''
+		:param table: the values to be written inside a sheet, list of list, list of rows of values
+		
+		
+		:returns: string of A1 notation of the range of the input table
+					e.g - 2x2 table, [[1, 2], [3, 4]] 
+							return "wanted_sheet_title!A1:B2"
+
+							It also account for starting column and starting row,
+							if the user inputed them
 		'''
 
+		# the max row value 
+		max_row_value = len(table) + start_row
+
+		# get the list with highest number of values -> get max column value
+		max_col_value = 0
+		for row in table:
+			current_max_value = len(row)
+			if current_max_value > max_col_value:
+				max_col_value = current_max_value
+		max_col_value += start_col
+
+		start_col = GoogleSheet.convert_num_to_letters(start_col)
+		start_row = start_row
+
+		end_col = GoogleSheet.convert_num_to_letters(max_col_value-1)
+		end_row = max_row_value-1
+
+		if sheet_title:
+			A1_notation = f"{sheet_title}!{start_col}{start_row}:{end_col}{end_row}"
+		else:
+			A1_notation = f"{start_col}{start_row}:{end_col}{end_row}"
+
+		return A1_notation
+
+	def read_json_file(self, file_name) -> Dict:
+		'''
+		reads json file and return json data (basically it's a dictionary)
+		'''
+		with open(f'{GoogleSheet.path_to_json_files}{file_name}', 'r') as json_file:
+			return eval(json_file.read())
+
+	@staticmethod
+	def get_hyperlink_web_link(cell_value: str) -> str:
+		'''
+		Meant for cells under column with title ID of a table
+		:return: polarian link to the this ID
+		'''
+		return f"{WorkItem.my_polarian_web_link}workitem?id={cell_value}"
+
+	def create_cell(self, value: str, no_border = False, border: List[str] = [], alignment: str = 'c', background_color: str = 'white', 
+																	bold: bool = False, attach_polarian_hyperlink: bool = False) -> Dict:
+		'''
+		return proper cellData in json data form (dictionary)
+
+		{
+			'effectiveFormat': 
+			{
+				object (CellFormat)
+			}
+
+
+			'effectiveValue':
+			{
+				object (ExtendedValue)
+			}
+		}
+
+		This function assumes the cell is in a table
+		:param value: the string value inside the cell
+		:param border: list of one of values 'r', 'l', 'u', 'b' which will determine thick border line for up, left, right or bottom 
+		:param alignment: defaulted to 'l' which is left, 'r' for right and 'c' for center
+		:param background_color: input directly in the class variable color like this GoogleSheet.colors[background_color]
+		:param bold: makes text bold (for title rows)
+		:param hyperlink: defaulted to None, no hyperlink, else input is the tuple of name of sheet, row as integer and col as integer (both start from 1 !! )
+		
+		:return: cellData json data (dictionary) (exactly like the shown up)
+		'''
+		alignments = {'l': 'LEFT', 'r': 'RIGHT', 'c': 'CENTER'}
+
+		cell = {
+		    'userEnteredFormat': 
+		    {     
+		            'backgroundColorStyle': 
+		            {
+		                'rgbColor': GoogleSheet.colors[background_color]
+		            },
+
+
+		            'borders': 
+		            {
+		                  'bottom': 
+		                  {
+		                        'color': {},
+		                        'colorStyle': {'rgbColor': {}},
+		                        'style': 'SOLID_MEDIUM' if 'b' in border else "SOLID",
+		                  },
+		                  'left': 
+		                  {
+		                        'color': {},
+		                        'colorStyle': {'rgbColor': {}},
+		                        'style': 'SOLID_MEDIUM' if 'l' in border else "SOLID",
+		                  },
+		                  'right': 
+		                  {
+		                        'color': {},
+		                        'colorStyle': {'rgbColor': {}},
+		                        'style': 'SOLID_MEDIUM' if 'r' in border else "SOLID",
+		                  },
+		                  'top': 
+		                  {
+		                        'color': {},
+		                        'colorStyle': {'rgbColor': {}},
+		                        'style': 'SOLID_MEDIUM' if 't' in border else "SOLID",
+		                  }
+		            } if not no_border else {},
+
+
+		            'horizontalAlignment': alignments[alignment],
+
+		            'verticalAlignment': 'MIDDLE',
+
+		            'hyperlinkDisplayType': "LINKED" if attach_polarian_hyperlink else 'PLAIN_TEXT',
+		            
+
+		            'padding': 
+		            {
+		                  'left': 3,
+		                  'right': 3
+		            },
+
+		            'textFormat': 
+		            {
+		                  'bold': bold,
+		                  'fontFamily': 'Arial',
+		                  'fontSize': 10,
+		                  'foregroundColor': {},
+		                  'foregroundColorStyle': {'themeColor': 'TEXT'},
+		                  'foregroundColorStyle': 
+		                  {
+		                        'rgbColor': GoogleSheet.colors['light_blue'] if attach_polarian_hyperlink else GoogleSheet.colors['black']
+		                  },
+		                  'italic': False,
+		                  'strikethrough': False,
+		                  'underline': True if attach_polarian_hyperlink else False
+		            },
+
+
+		            'verticalAlignment': 'BOTTOM',
+		            
+		            'wrapStrategy': 'CLIP'  # 'WRAP'
+		    },
+
+		}  
+
+
+		# Assigning the value
+		if attach_polarian_hyperlink:
+			cell['userEnteredValue'] = {'formulaValue': f"=HYPERLINK(\"{GoogleSheet.get_hyperlink_web_link(value)}\", \"{value}\")"}
+		else:
+			cell['userEnteredValue'] = {'stringValue': value}           
+
+		return cell
+	
+	def create_empty_table_rowData(self, row_count) -> List[Dict]:
+		'''
+		empty rows for Google sheet, meant to put spaces between different tables
+
+		return list of rowData
+		'''
+		output = []
+		for _ in range(row_count):
+			output.append({'values': [self.create_cell('', no_border=True)]})
+
+		return output
+
+	def create_analysis_table_rowData(self, rows_of_tables: List[List[str]], table_start_row_inds: List[int]) -> List[Dict]:
+		'''
+		takes in any analysis table, e.g code coverage analysis table
+
+		:param rows_of_tables: output of block.str_analysis_table, list of rows of string values
+		:param table_start_row_inds: list of where every table starts of the block
+
+		:returns: list of rowData json data (dictionary) AKA one checklist table as google sheet json data
+
+		FOR MORE INFO LOOK AT THE DOCS OF self.create_checklist_table()
+
+		How to do it:
+		1-
+		'''
+
+		current_row = 0
+
+		### create the first row, the title row -> list of cellData json data
+		title_row = [self.create_cell(rows_of_tables[current_row][0], border = ['l', 't', 'b'], bold=True)]  # first cell, has borders from left and top
+		for value in rows_of_tables[current_row][1:-1]:
+			title_row.append(self.create_cell(value, border = ['t', 'b'], bold=True))
+		title_row.append(self.create_cell(rows_of_tables[current_row][-1], border = ['r', 't', 'b'], bold=True))  # last cell for the top
+		current_row += 1
+
+		### finding ID columns
+		ID_col_indexes = {}
+		for ind_m in table_start_row_inds:
+			ID_col_indexes[ind_m] = []
+			for ind, value in enumerate(rows_of_tables[ind_m]):
+				if 'id' in value.lower():
+					ID_col_indexes[ind_m].append(ind)
+
+		# the variables that will make sure the right list of ID_columns is choose for the right row
+		table_end_row_inds = table_start_row_inds[1:]
+		table_end_row_inds.append(len(rows_of_tables))
+		current_key_col_index = 0
+		current_col_list = ID_col_indexes[table_start_row_inds[current_key_col_index]]
+
+		### create the rest of body rows except last row
+		list_of_body_rows = []
+		# creating list of list of cell celldata
+		for row in rows_of_tables[1:-1]:
+
+			# figuring out the current column ID list indexes
+			if current_row >= table_end_row_inds[current_key_col_index]:
+				current_key_col_index += 1
+				current_col_list = ID_col_indexes[table_start_row_inds[current_key_col_index]]
+
+			# creating a new list of cellData
+			list_of_body_rows.append([])
+
+			# first cell in the row
+			list_of_body_rows[-1].append(self.create_cell(row[0], border=['l'], attach_polarian_hyperlink = True if 0 in current_col_list else False))  # first cell has left border
+			
+			# all body cells
+			for ind_in, value in enumerate(row[1:-1]):
+				list_of_body_rows[-1].append(self.create_cell(value, attach_polarian_hyperlink = True if ((ind_in+1) in current_col_list) else False))
+
+			# last cell in the row
+			list_of_body_rows[-1].append(self.create_cell(row[-1], border=['r'], attach_polarian_hyperlink = True if ind_in+2 in current_col_list else False))
+		
+			current_row += 1
+
+		### create last row
+		last_row = [self.create_cell(rows_of_tables[-1][0], border = ['l', 'b'], attach_polarian_hyperlink = True if 0 in current_col_list else False)]  # first cell, has borders from left and top
+		for ind_in, value in enumerate(rows_of_tables[-1][1:-1]):
+			last_row.append(self.create_cell(value, border = ['b'], attach_polarian_hyperlink = True if ((ind_in+1) in current_col_list) else False))
+		last_row.append(self.create_cell(rows_of_tables[-1][-1], border = ['r', 'b'], attach_polarian_hyperlink = True if ind_in+2 in current_col_list else False))  # last cell for the top
+		current_row += 1
+
+		### converting list of cellData to proper rowData structure
+		# title row
+		rowData_title_row = {}
+		rowData_title_row['values'] = title_row
+		rowData_list_of_rowData = [rowData_title_row]  # list of dicts "values" = list_of_cellData
+		
+		# body rows
+		for row in list_of_body_rows:
+			rowData_list_of_rowData.append({"values": row})
+
+		# last row
+		rowData_last_row = {}
+		rowData_last_row['values'] = last_row
+		rowData_list_of_rowData.append(rowData_last_row)
+
+		return rowData_list_of_rowData
+		
+	def create_all_analysis_table_rowData(self, blocks) -> List[dict]:
+		'''
+		loops through all analysis tables and creates all rowData
+
+		puts two empty rows between each table
+		'''
+		all_rowData = []
+		empty_cell = self.create_cell('')
+		for block in blocks[1:]:
+			all_rowData.extend(self.create_analysis_table_rowData(block.str_analysis_table, block.table_start_row_inds))
+			all_rowData.append(self.create_empty_table_rowData(BlockTemplate.num_empty_rows_between_tables))
+
+		return all_rowData
+
+	def create_checklist_table_rowData(self, table: List[List[str]]) -> List[Dict]:
+		'''
+		takes in any checklist table, e.g code coverage checklist table
+
+		and returns list of rowData json data (dictionary) AKA one checklist table as google sheet json data
+
+		rowData json file represent one row in a google sheet, it is a list of cells
+		A list of them is a table as it is (list of rows)
+
+		rowData json file is represented like this
+
+		{
+			"values": 
+			[  # this is start of the list, start of the row
+
+				{  # first cell in the row
+				object (CellData)  # a celldata is a json data that contains all information of a cell
+				},
+
+				{ # second cell in the row
+				object (CellData)
+				},
+
+				{ # third cell in the row
+				object (CellData)
+				}
+			
+			]  # list finished, row ended
+		}
+
+
+		######################################################################################################
+		The output of this function should help in inputing directly in 'data' key attribute in the 'Sheets' Google json file
+		
+		# A Sheet json data
+		{
+			"properties": 
+			{
+				object (SheetProperties)
+			}
+
+
+			"data":
+			[
+				{ # GridData json data
+					"rowData": 
+					[ 
+						{ object (RowData) },
+						{ object (RowData) },
+						....
+						{ object (RowData) }  
+					]  <<----- This is the output of this function!!! (including the '[' and ']')
+				}
+			]
+
+			....
+		}
+
+		The goodnews if i put this rowdata directly in this syntax like this it will immediately write it as it is from A1 cell
+		THIS MEANS: I can loop through all checklist box and execute this function for each block and store all the outputs in a list
+		THUS: I can pass this list directly after rowData like this
+
+			"rowData":  <list of create_checklist_table() returns>
+
+		How to do it:
+		1- loop through str in a list of list and call self.create_cell() (with it's proper arguments specific to this cell only; the coordinates of this cell)
+		2- keep appending to the list in 'values: []' of the json file to complete one row in the form of list of cell data 
+		3- the whole thing inside {} and append the 'rowData: []' list to add new rows to the output table
+		4- return the complete list of dictionary of which each dict has one key 'values' which has value list of cellData. That it! :)
 		'''
 		pass
 
-	def create(self):
+	def create_checklist_sheet(self):
+		'''
+		:return: sheet Json file of checklist sheet
+		'''
+		
+		### Load the complete sheet imported from the template Google Sheet
+		sheet = self.read_json_file('checklist_sheet.json')
+
+
+		### Modifying the Input Values AND assigning the hyperlinks to the 'Analysis of ...' cell of each block
+		all_rows = BlockTemplate.get_checklist_tables(self.blocks)
+		current_block_count = 1  # to know what is the block of the current row, we start from 1 because block[0] doesn't have analysis sheet
+		start_row = 1  # in GoogleSheet, rows start at 1 not 0
+		# looping through all userEnteredValue and changing them to the values I want
+		for row_ind, row in enumerate(sheet['data'][0]['rowData']):
+			for cell_ind, cell in enumerate(row.get('values', [{'None': None}])):
+
+				# putting values I accounted for in the get_checklist_tables()
+				if not row_ind+1 > len(all_rows):
+					if not cell_ind+1 > len(all_rows[row_ind]):
+
+						# put Hyperlink only in the cells which says 'Analysis of <block.name> for SW component <component.true_title>'
+						cell_value = all_rows[row_ind][cell_ind]
+						if 'Analysis of' and 'for the SW component' in cell_value:
+							
+							current_table = self.blocks[current_block_count].str_analysis_table
+							A1_notation = GoogleSheet.get_A1_notation(current_table, start_row=start_row)
+							start_row += len(current_table) + BlockTemplate.num_empty_rows_between_tables
+							
+							hyperlink_value = f"=HYPERLINK(\"#gid={GoogleSheet.analysis_sheet_id}&range={A1_notation}\", \"{cell_value}\")"
+							cell['userEnteredValue'] = {'formulaValue': hyperlink_value}
+							
+							current_block_count += 1
+						
+						else:
+							cell['userEnteredValue'] = {'stringValue': cell_value}
+
+		return sheet
+
+	def create_analysis_sheet(self):
+		'''
+		:return: sheet Json file of analysis sheet
+		'''
+		sheet = {
+		            'properties': 
+		            {
+		                'sheetId': GoogleSheet.analysis_sheet_id, 
+		                'title': GoogleSheet.analysis_sheet_name, 
+		                'index': GoogleSheet.analysis_sheet_index, 
+		                'sheetType': 'GRID', 
+		                'gridProperties': 
+		                {
+		                    'rowCount': 1000, 
+		                    'columnCount': 30
+		                }
+		            },
+
+		            "merges": self.get_all_analysis_sheet_merges(self.blocks, GoogleSheet.analysis_sheet_id),
+
+		            "data": [
+		            	{
+		            	"rowData": self.create_all_analysis_table_rowData(self.blocks)
+		            	}
+		            ]
+		}
+
+		return sheet
+
+	################################ Merge Methods ################################
+	@staticmethod
+	def get_merge_data(sheet_id: int, start_row: int, end_row: int, start_col: int, end_col: int):
+		'''
+		:return: one gridRange Json data
+		'''
+		output =  {
+		  "sheetId": sheet_id,
+		  "startRowIndex": start_row,
+		  "endRowIndex": end_row,
+		  "startColumnIndex": start_col,
+		  "endColumnIndex": end_col
+		}
+		return output
+
+	@staticmethod
+	def get_merges_list(rows: List[List[str]], col_num_to_be_merged: List[int], starting_row_num: int, sheet_id: int) -> List[Dict]:
+		'''
+		creates the list of GridRange json data input for vertical merges, 
+		meant to be input of "merges" in Sheets Json data
+		e.g of result when col_num_to_be_merged = [0, 1, 2] in the google sheet
+		SN, 	ID, 	DD name, 	Req 		SN, 	ID, 	DD name, 	Req 
+		1,  	432, 	DDname1, 	Req1					 			, 	Req1
+		1, 		432, 	DDname1, 	Req2		1, 		432, 	DDname1 , 	Req2
+		1, 		432, 	DDname1, 	Req3  --->	 			 			, 	Req3
+		2, 		243, 	DDname2, 	Req8					 			, 	Req8
+		2, 		243, 	DDname2, 	Req2		2, 		243, 	DDname2, 	Req2
+
+		:param rows: output of BlockTemplate.get_str_analysis_table()
+		:param col_num_to_be_merged: list of the index of the columns that has data that could be merged
+		:param starting_row_num: the merge data is absolute, we need to know where does the table start
+									ASSUME: all tables starts from first column
+		:return: list of GridRange Json Data (meant to be input of "merges": in sheet Json data)
+		'''
+		merges = []
+
+		# Get the transpose of the tables
+		transpose = GoogleSheet.get_transpose(rows)
+
+		# get merge value Algorithm
+		for col_ind in col_num_to_be_merged:
+
+			start_ind = starting_row_num
+			current_value = transpose[col_ind][0]
+			for ind, value in enumerate(transpose[col_ind][1:]):
+
+				if current_value == value:
+					continue  # keep continuing through all the col values that are the same
+				
+				else:
+					current_value = value  # for next time, assigning the new different value
+
+					end_ind = starting_row_num + ind + 1
+					if end_ind - start_ind == 1:
+						# no merge needed values are different in the next cell
+						start_ind = end_ind  # for next time
+						
+					else:
+						# more than one row with same value
+						# getting the merge
+						merges.append(GoogleSheet.get_merge_data(sheet_id, start_ind, end_ind, col_ind, col_ind+1))
+
+						start_ind = end_ind
+
+
+		return merges
+
+	def get_all_analysis_sheet_merges(self, blocks, sheet_id):
 		'''
 
 		'''
-		pass
+		all_merges = []
+		row_counter = 0
+		for block in blocks[1:]:
+			all_merges.extend(block.merges(row_counter, sheet_id))
+			row_counter += len(block.str_analysis_table) + BlockTemplate.num_empty_rows_between_tables
+			
+
+		return all_merges
+	################################################################################################
+
+	def get_complete_spreadsheet(self) -> List[Dict]:
+		'''
+		:return: complete spreadsheet Json Data with EVERYTHING
+		'''
+		spreadsheet = {
+			    ############### SpreadSheetProperties ###############
+			    'properties': 
+			    {
+			        'title': self.blocks[0].component.true_title + '.c', 
+			        'locale': 'en_US', 
+			        'defaultFormat': 
+			        {
+			            'backgroundColor': 
+			            {
+			                'red': 1, 
+			                'green': 1, 
+			                'blue': 1
+			            }, 
+			            'padding': 
+			            {
+			                'right': 3, 
+			                'left': 3
+			            },
+			            'verticalAlignment': 'MIDDLE', 
+			            'wrapStrategy': 'CLIP', 
+			            'textFormat': 
+			            {
+			                'foregroundColor': {}, 
+			                'fontFamily': 'Arial', 
+			                'fontSize': 10, 
+			                'bold': False, 
+			                'italic': False, 
+			                'strikethrough': False, 
+			                'underline': False, 
+			                'foregroundColorStyle': 
+			                {
+			                    'rgbColor': {}
+			                }
+			            }, 
+			            'backgroundColorStyle': 
+			            {
+			                'rgbColor': 
+			                {
+			                    'red': 1, 
+			                    'green': 1, 
+			                    'blue': 1
+			                }
+			            }
+			        }, 
+			        'spreadsheetTheme': 
+			        {
+			            'primaryFontFamily': 'Arial', 
+			            'themeColors': 
+			            [
+			                {
+			                    'colorType': 'TEXT', 
+			                    'color': 
+			                    {
+			                        'rgbColor': {}
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'BACKGROUND', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 1, 
+			                            'green': 1, 
+			                            'blue': 1
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'ACCENT1', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 0.25882354, 
+			                            'green': 0.52156866, 
+			                            'blue': 0.95686275
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'ACCENT2', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 0.91764706, 
+			                            'green': 0.2627451, 
+			                            'blue': 0.20784314
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'ACCENT3', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 0.9843137, 
+			                            'green': 0.7372549, 
+			                            'blue': 0.015686275
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'ACCENT4', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 0.20392157, 
+			                            'green': 0.65882355, 
+			                            'blue': 0.3254902
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'ACCENT5', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 1, 
+			                            'green': 0.42745098, 
+			                            'blue': 0.003921569
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'ACCENT6', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 0.27450982, 
+			                            'green': 0.7411765, 
+			                            'blue': 0.7764706
+			                            
+			                        }
+			                    }
+			                }, 
+
+			                {
+			                    'colorType': 'LINK', 
+			                    'color': 
+			                    {
+			                        'rgbColor': 
+			                        {
+			                            'red': 0.06666667, 
+			                            'green': 0.33333334, 
+			                            'blue': 0.8
+			                        }
+			                    }
+			                }
+			            ]
+			        }
+			    }, 
+
+			    ############### Sheets ###############
+			    'sheets': 
+			    [
+			    	############### Checklist sheet ###############
+			        self.create_checklist_sheet(), 
+
+			        ############### Analysis sheet ###############
+			        self.create_analysis_sheet()
+			    ]
+			}
+
+		return spreadsheet
+
+	def create(self) -> str:
+		"""
+		Creates the Sheet the user has access to.
+		
+		PROVIDED: token.json is present in wanted path
+
+		return spreadsheetId as str
+	    """
+
+	    ################### Creating the SpreadSheet ###################
+		creds = None
+		path_to_token_json = GoogleSheet.path_to_json_files + 'token.json'
+
+		if os.path.exists(path_to_token_json):
+			print("Reading Creds...")
+			creds = Credentials.from_authorized_user_file(path_to_token_json, GoogleSheet.SCOPES)
+			print("Done Reading Creds!")
+			# If there are no (valid) credentials available, let the user log in.
+		
+		else:
+			# token.json is not there
+			raise FileNotFoundError("'token.json' is not found!\nPlease ask admin to make token.json for you.")
+				
+		# if token.json is there or not valid	
+		if not creds or not creds.valid:
+
+			# if token.json is not valid, refresh?!?
+			if creds and creds.expired and creds.refresh_token:
+				print("\n\nRefreshing token.json...")
+				creds.refresh(Request())
+				print("Done!")
+				
+		try:
+			print("\nSending API create spreadsheet Request...")
+			service = build('sheets', 'v4', credentials=creds)
+			spreadsheet = self.get_complete_spreadsheet()  # :)
+
+			spreadsheet = service.spreadsheets().create(body=spreadsheet, fields='spreadsheetId').execute()
+
+			spreadsheet_id = spreadsheet.get('spreadsheetId')
+
+			print(f"Done Creating Spreadsheet with ID: {(spreadsheet.get('spreadsheetId'))}")
+
+		except HttpError as error:
+			print(f"An error occurred: {error}")
+			return error
+		######################################################################################################
+
+
+		# finally return spreadsheetID
+		return spreadsheet_id
 ########################################################################################################################################
 
 
@@ -3492,7 +4660,7 @@ if __name__ == '__main__':
 
 
 	### Inputs
-	component_name = "nvm_sms"
+	component_name = "idp"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
@@ -3505,8 +4673,9 @@ if __name__ == '__main__':
 
 	path_to_tcc = 'C:\\tcc'
 
-	### Run the script
-	main(homedir, component_name, CAT_num, branch, variant, paths_to_code, path_to_reports, path_to_tcc)
+	my_polarian_web_link = "https://vseapolarion.vnet.valeo.com/polarion/#/project/VW_MEB_Inverter/mypolarion"
 
+	### Run the script
+	main(homedir, component_name, CAT_num, branch, variant, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link)
 ########################################################################################################################################
 
