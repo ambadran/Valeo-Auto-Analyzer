@@ -1,0 +1,32 @@
+			{
+'Exc_Proc': 
+{
+'Decisions': (7, 7),
+              'Functions and exits': (2, 2),
+              'Hit': ['yes'],
+              'Implicit blocks': (1, 1),
+              'Statement blocks': (6, 6)
+},
+'File EXC.C': 
+{
+		'Decisions': (8, 8),
+                'Functions and exits': (4, 4),
+                'Implicit blocks': (1, 1),
+                'Statement blocks': (7, 7)
+},
+ 'MAKE_CORE_SYNC_STS_WORD': 
+{
+		'Decisions': (1, 1),
+                'Functions and exits': (2, 2),
+                'Hit': ['yes'],
+                'Implicit blocks': None,
+                'Statement blocks': (1, 1)},
+ 'Summary': 
+{
+	     'Decisions': [16, 16],
+             'Functions and exits': [4, 4],
+             'Implicit blocks': [2, 2],
+             'Statement blocks': [14, 14]
+}
+
+			}

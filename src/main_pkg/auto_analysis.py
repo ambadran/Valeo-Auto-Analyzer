@@ -18,7 +18,7 @@ The Analysis step is made of 6 steps:
 
 ########################################################################################################################################
 # File Attributes
-__all__ = ['read_assign_all_CSVs', 'analyze_component', 'Component', 'set_wanted_directory', 'export_csv', 'GoogleSheet']
+__all__ = ['read_assign_all_CSVs', 'create_blocks', 'Component', 'set_wanted_directory', 'export_csv', 'GoogleSheet']
 __author__ = 'AbdulRahman Mohsen Badran'
 __version__ = '1.0.0'
 
@@ -298,28 +298,19 @@ class WorkItem(ABC):
 		return not (False in self.workitems_type_set.values())
 
 	@classmethod
-	def assign_validate_polarian_link(cls, variable=None):
+	def assign_validate_polarian_link(cls, my_polarian_web_link: str):
 		'''
-		makes sure the global variable my_polarian_web_link is valid
+		makes sure the variable my_polarian_web_link is valid
 		Then assigns class variable
+		:param my_polarian_web_link: string of web link to my polarian openned in the wanted project
 		'''
-		if variable == None:
-			try:
-				stop_ind = my_polarian_web_link.index("mypolarion")
-			except ValueError:
-				raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
-
-			cls.my_polarian_web_link = my_polarian_web_link[:stop_ind]
-
-		else:
-			try:
-				stop_ind = variable.index("mypolarion")
-			except ValueError:
-				raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
-
-			cls.my_polarian_web_link = variable[:stop_ind]
-
+		try:
+			stop_ind = my_polarian_web_link.index("mypolarion")
 		
+		except ValueError:
+			raise ValueError("This is link is invalid. It must be the 'My Polarion' web page openned in your desired project!")
+
+		cls.my_polarian_web_link = my_polarian_web_link[:stop_ind]
 
 	@property
 	def polarian_link(self) -> str:
@@ -1006,7 +997,7 @@ def goal_test_general(wanted_goal: Component.true_title):
 
 	return goal_test
 
-def successor_general(variant, branch, search_key):
+def successor_general(variant, branch, search_key, path_to_reports):
 	'''
 	Argument of DFS/BFS/A* Algorithms to return next possible moves
 	'''
@@ -1452,13 +1443,18 @@ class FirstBlock(BlockTemplate):
 	variant = 'Code variant : '
 	SW_release = 'Software release : '
 
-	def __init__(self, component: Component, variant, branch):
+	def __init__(self, component: Component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link):
 		self.component = component
 		self.name = component.true_title
 		self.CAT_num = component.CAT_num
 		self.stat = self.get_stat()
 		self.variant = variant
 		self.SW_release = branch
+
+		self.paths_to_code = paths_to_code
+		self.path_to_reports = path_to_reports
+		self.path_to_tcc = path_to_tcc
+		self.my_polarian_web_link = my_polarian_web_link
 
 		# output tables
 		self.checklist_table = self.get_checklist_table()
@@ -1549,6 +1545,7 @@ class SecondBlock(BlockTemplate):
 		self.component = first_block.component
 		self.variant = first_block.variant
 		self.branch = first_block.SW_release
+		self.path_to_reports = first_block.path_to_reports
 
 		self.sole_files = []
 
@@ -1737,7 +1734,7 @@ class SecondBlock(BlockTemplate):
 		(should be processed with html2text)
 		'''
 		output: List[str] = []
-		path = path_to_reports
+		path = self.path_to_reports
 		path = self.filter_backslash(path)
 
 		# making sure the path_to_reports exists
@@ -1756,7 +1753,7 @@ class SecondBlock(BlockTemplate):
 		# 8- if found return, else recurse to the last valid step
 
 		goal_test = goal_test_general(self.component.true_title)
-		successor = successor_general(self.variant, self.branch, self.search_key)
+		successor = successor_general(self.variant, self.branch, self.search_key, self.path_to_reports)
 
 		report_path = DFS(path, goal_test, successor)
 
@@ -1818,10 +1815,10 @@ class SecondBlock(BlockTemplate):
 					break
 
 			else:  # Didn't find self.search_key report, Thus will commence searching for self.search_key in server files
-				print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{path_to_reports}\n")
+				print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{self.path_to_reports}\n")
 				output = self.search_for_report()
 		else:   # Didn't find self.search_key report, Thus will commence searching for self.search_key in server files
-			print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{path_to_reports}\n")
+			print(f"{self.component.true_title} {self.search_key} report not found, Searching for {self.search_key} report in\n{self.path_to_reports}\n")
 			output = self.search_for_report()
 
 		if output == None:
@@ -1894,6 +1891,7 @@ class ThirdBlock(SecondBlock):
 		self.component = first_block.component
 		self.variant = first_block.variant
 		self.branch = first_block.SW_release
+		self.path_to_reports = first_block.path_to_reports
 
 		self.sole_files = []
 
@@ -1994,6 +1992,8 @@ class ForthBlock(BlockTemplate):
 		self.first_block = first_block
 		self.component = first_block.component
 		self.variant = first_block.variant
+		self.paths_to_code = first_block.paths_to_code
+		self.path_to_tcc = first_block.path_to_tcc
 		
 		self.enabled_disabled_result: Dict[str: bool] = {}  # str= statetment e.g- (ASM==1), bool=enabled/disabled -> True/False
 
@@ -2152,8 +2152,7 @@ class ForthBlock(BlockTemplate):
 
 
 			# executing and creating a log file with the output :)
-			global path_to_tcc
-			command = f"powershell \"{path_to_tcc}\\tcc.exe -run internals\\c_files\\test.c"
+			command = f"powershell \"{self.path_to_tcc}\\tcc.exe -run internals\\c_files\\test.c"
 			result = subprocess.check_output(command, shell=True, stderr=subprocess.STDOUT).decode().strip()
 			try:  # assumes output are only numbers seperated by \r, \n, ' '
 				if result != '':
@@ -2381,13 +2380,11 @@ class ForthBlock(BlockTemplate):
 		:param passive_search_mode: normally an error is raised if file not found, else only a print() will be executed
 		return "<content of .c file", "<path to file>"
 		"""
-		# Go to code directory
-		global paths_to_code
 
 		# getting all_files hashed, only once
 		if self.all_files == None:
 			self.all_files = {}
-			for path in paths_to_code:
+			for path in self.paths_to_code:
 				path_to_serach_in = self.filter_backslash(path)
 				walk_output = os.walk(path_to_serach_in)
 				files_not_readable_yet = ['.xlsm', '.png', '.xlsx', '.xls', '.zip', '.docx', '.doc', '.jar', '.gif', '.exe', '.dll', '.bmp', '.lzma', '.xz', '.pdf', '.xdm', '.dat', '.lib', '.tdb', '.a', '.elf', '.jbc', '.pof', '.err']
@@ -2435,9 +2432,9 @@ class ForthBlock(BlockTemplate):
 			result = None
 			path = None
 			if passive_search_mode:
-				print(f"\nCouldn't find {name} file in {paths_to_code}\n")
+				print(f"\nCouldn't find {name} file in {self.paths_to_code}\n")
 			else:
-				raise FileNotFoundError(f"\n\nCouldn't find {name} file in {paths_to_code}")
+				raise FileNotFoundError(f"\n\nCouldn't find {name} file in {self.paths_to_code}")
 
 		return result, path
 
@@ -3671,34 +3668,38 @@ def read_assign_all_CSVs():
 
 	Interface.get_all_from_csv(assign_class_variable=True, hash_key='ID')
 
-def analyze_component(wanted_component=None, variant=None, branch=None, paths_to_code_in=None, path_to_reports_in=None, path_to_tcc_in=None, my_polarian_web_link_in=None):
-	'''
-	Executes the steps to analyze the wanted component
-	'''
+def create_blocks(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link):
+	"""
+	return list of blocks
+	"""
 
-	# making paths global so it can be accessable anywhere, when running this function from another file
-	global paths_to_code
-	if paths_to_code_in:
-		paths_to_code = paths_to_code_in
+	blocks = []
+	if component.CAT_num == 1:	
+		blocks.append(FirstBlock(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
+		blocks.append(SixthBlock(blocks[0], blocks[4]))
+		blocks.append(SeventhBlock(blocks[0], blocks[4], blocks[5]))
 
-	global path_to_reports
-	if path_to_reports_in:
-		path_to_reports = path_to_reports_in
+	elif component.CAT_num == 2:
+		blocks.append(FirstBlock(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
+		blocks.append(SixthBlock(blocks[0], blocks[4]))
 
-	global path_to_tcc
-	if path_to_tcc_in:
-		path_to_tcc = path_to_tcc_in
+	elif component.CAT_num == 3:
+		blocks.append(FirstBlock(component, variant, branch, paths_to_code, path_to_reports, path_to_tcc))
+		blocks.append(SecondBlock(blocks[0]))
+		blocks.append(ThirdBlock(blocks[0]))
+		blocks.append(ForthBlock(blocks[0]))
+		blocks.append(FifthBlock(blocks[0], blocks[3]))
 
-	global my_polarian_web_link
-	if my_polarian_web_link_in:
-		my_polarian_web_link = my_polarian_web_link_in
-
-	##### Executing the script ######
-
-	# Running all bocks
-	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
-	blocks = create_blocks(wanted_component, variant, branch)
-	print('\nAnalysis is Completed Successfully!!!\n')
+	# Updating first block analysis_stat attribute after running all blocks :)
+	blocks[0].update_analysis_stat(blocks)
 
 	return blocks
 
@@ -3715,22 +3716,23 @@ def main(homedir, component_name, CAT_num, branch, variant, paths_to_code_in, pa
 	print("Reading polarian csv outputs and parsing data....")
 	read_assign_all_CSVs()
 
-	### for google sheet api
-	WorkItem.assign_validate_polarian_link()
-
-	# get wanted component object
+	# get wanted component object and linking it to all linked workitems
 	print(f"Finding Component: {component_name} in Polarian\n")
 	wanted_component = Component.get_component(component_name, CAT_num, branch)
 	if wanted_component.found_in_polarian:
 		print(f"Found Component: {wanted_component.true_title} in Polarian!\n")
 
 	### Commencing the Analysis
-	blocks = analyze_component(wanted_component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link)
+	# Running all bocks
+	print(f"Starting analysis for {wanted_component.title} of variant {variant} of ID {wanted_component.ID}\nand Document name '{wanted_component.document}'\n\n")
+	blocks = create_blocks(wanted_component, variant, branch, paths_to_code, path_to_reports, path_to_tcc, my_polarian_web_link)
+	print('\nAnalysis is Completed Successfully!!!\n')
 
 	# Export outputs as CSVs
 	export_csv(blocks)
 
 	# Export output in a Google Sheet
+	WorkItem.assign_validate_polarian_link(my_polarian_web_link_in)
 	google_sheet = GoogleSheet(blocks)
 	google_sheet.copy_link_to_clipboard()
 	google_sheet.save_link_in_txt_file()
@@ -3742,57 +3744,6 @@ def set_wanted_directory_internal(homedir_in):
 	global homedir
 	homedir = homedir_in
 	os.chdir(homedir)
-
-def create_blocks(component, variant, branch, paths_to_code_in=None, path_to_reports_in=None, path_to_tcc_in=None):
-	"""
-	return list of blocks
-	"""
-
-	global paths_to_code
-	if paths_to_code_in:
-		paths_to_code = paths_to_code_in
-
-	global path_to_reports
-	if path_to_reports_in:
-		path_to_reports = path_to_reports_in
-
-	global path_to_tcc
-	if path_to_tcc_in:
-		path_to_tcc = path_to_tcc_in
-
-	print(f"\n######################################\nCreating blocks for Variant:{variant}\n")
-
-	blocks = []
-	if component.CAT_num == 1:	
-		blocks.append(FirstBlock(component, variant, branch))
-		blocks.append(SecondBlock(blocks[0]))
-		blocks.append(ThirdBlock(blocks[0]))
-		blocks.append(ForthBlock(blocks[0]))
-		blocks.append(FifthBlock(blocks[0], blocks[3]))
-		blocks.append(SixthBlock(blocks[0], blocks[4]))
-		blocks.append(SeventhBlock(blocks[0], blocks[4], blocks[5]))
-
-	elif component.CAT_num == 2:
-		blocks.append(FirstBlock(component, variant, branch))
-		blocks.append(SecondBlock(blocks[0]))
-		blocks.append(ThirdBlock(blocks[0]))
-		blocks.append(ForthBlock(blocks[0]))
-		blocks.append(FifthBlock(blocks[0], blocks[3]))
-		blocks.append(SixthBlock(blocks[0], blocks[4]))
-
-	elif component.CAT_num == 3:
-		blocks.append(FirstBlock(component, variant, branch))
-		blocks.append(SecondBlock(blocks[0]))
-		blocks.append(ThirdBlock(blocks[0]))
-		blocks.append(ForthBlock(blocks[0]))
-		blocks.append(FifthBlock(blocks[0], blocks[3]))
-
-	# Updating first block analysis_stat attribute after running all blocks :)
-	blocks[0].update_analysis_stat(blocks)
-
-	print("Done creating all Blocks\n")
-
-	return blocks
 ########################################################################################################################################
 
 

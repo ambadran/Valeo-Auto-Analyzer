@@ -1,0 +1,342 @@
+SftyTqMon.c - Module Compliance Report (2022-07-30 00:56:17.348000) unreachable
+Rule Violations
+M3CM (0 active - 1 total)
+Rule	guid	description	active	total
+M3CM-2 - MISRA Required
+qac-9.9.0-0380	0380. [L] Number of macro definitions exceeds 4095 - program does not conform strictly to ISO:C99.	0	1
+HIS Metrics
+Name	STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+SftyTqMon_CalcAlpha	2	6	7	3	2.810	0	1	0	1	3	0	3
+SftyTqMon_CalcTqMax	0	2	2	3	2.111	0	1	0	1	1	0	1
+SftyTqMon_CalcTqMin	0	2	2	3	2.111	0	1	0	1	1	0	1
+SftyTqMon_CalcTqRngThd	0	7	7	0	3.000	5	1	0	1	1	6	1
+SftyTqMon_ChkTqEsp	3	21	32	0	4.233	0	1	0	1	7	0	28
+SftyTqMon_ChkTqOscn	3	18	25	0	4.143	2	1	0	1	4	5	4
+SftyTqMon_ChkTqReq	3	22	38	0	4.571	0	1	0	1	7	0	28
+SftyTqMon_ChkTqRng	2	7	11	0	3.621	0	1	0	1	3	0	3
+SftyTqMon_CurMdlPwrMdlPlaus	3	7	10	0	3.583	1	1	0	1	4	1	4
+SftyTqMon_CurMdlQmTqPlaus	2	7	12	0	2.480	1	1	0	1	3	1	3
+SftyTqMon_GetCurMdlTqEstimd	1	4	5	0	3.533	0	1	0	1	2	0	2
+SftyTqMon_GetPwrMdlTqEstimd	1	4	5	0	2.214	0	1	0	1	2	0	2
+SftyTqMon_GetQmTqAct	2	7	9	0	4.130	1	1	0	1	3	1	3
+SftyTqMon_GetTqMax	1	6	8	0	2.941	0	1	0	1	3	0	4
+SftyTqMon_GetTqMin	1	6	8	0	2.941	0	1	0	1	3	0	4
+SftyTqMon_Init	0	26	27	1	2.066	1	1	0	0	1	1	1
+SftyTqMon_Init_ErrDeb	0	26	26	0	2.018	0	1	0	0	1	0	1
+SftyTqMon_MainFunction	0	19	20	1	4.150	12	1	0	0	1	12	1
+SftyTqMon_SendTqLimToDrco	0	3	3	0	1.611	0	1	0	1	1	0	1
+Includes
+C2cComDrvCtrlData.h
+C2cComSftyData.h
+ErrDeb_cmn.h
+Mathlib.h
+Std_Types.h
+SftyE2eRx_cfg.h
+SftyErrDeb.h
+SftyErrDeb_cfg.h
+SftySdl.h
+SftyUtils.h
+Sfty_Types.h
+SftyInvActr.h
+SftyTqMon.h
+SftySdlPfc.h
+generic.h
+intrinsics.h
+AddEnumTypes.h
+AddGlobalDefines.h
+SftyTqMon_data.h
+MemMap.h
+Functions
+SftyTqMon_CalcAlpha
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+2	6	7	3	2.810	0	1	0	1	3	0	3
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqMon_CalcTqMax
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	2	2	3	2.111	0	1	0	1	1	0	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqMon_CalcTqMin
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	2	2	3	2.111	0	1	0	1	1	0	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqMon_CalcTqRngThd
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	7	7	0	3.000	5	1	0	1	1	6	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyRslvrCalcnMeclSpdFild	SftyTqMon_CalcAlpha	SftyTqMonCalcdTqRngHiThd
+SysPrmTqMotGenToTqMaxSpdThdHi	SftyTqMon_CalcTqMax	SftyTqMonCalcdTqRngLoThd
+SysPrmTqMotGenToTqMaxSpdThdLo	SftyTqMon_CalcTqMin	
+SysPrmTqMotGenToTqMinSpdThdHi	SftyTqMon_GetTqMax	
+SysPrmTqMotGenToTqMinSpdThdLo	SftyTqMon_GetTqMin	
+SftyTqMon_ChkTqEsp
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+3	21	32	0	4.233	0	1	0	1	7	0	28
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftySpdMonDrehzahlMaxSt		SftyTqMonTqEspErrMonrSt
+SftySpdMonDrehzahlMinSt		SftyTqMonTqEspTqAccrSum
+SftyTqEstimrPwrMdlIgbtModAct		SftyTqMonTqEspTqBrkSum
+SftyTqMonCurMdlQmTqPlausErrMonrSt		
+SftyTqMonTqAct		
+SftyTqMonTqEspMaxAccrThd		
+SftyTqMonTqEspMaxActDampAccrTq		
+SftyTqMonTqEspMaxActDampBrkTq		
+SftyTqMonTqEspMaxBrkThd		
+SftyTqMonTqEspTqAccrSum		
+SftyTqMonTqEspTqBrkSum		
+SftyTqMon_ChkTqOscn
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+3	18	25	0	4.143	2	1	0	1	4	5	4
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyE2eSigDataMotor56	SftyUtils_HiPassFil	SftyTqMonHiPassFil1Spd
+SftyRslvrCalcnMeclSpdFild	SftyUtils_LowPassFil	SftyTqMonHiPassFil1Tq
+SftyTqEstimrPwrMdlIgbtModAct		SftyTqMonHiPassFil2Spd
+SftyTqMonCurMdlQmTqPlausErrMonrSt		SftyTqMonHiPassFil2Tq
+SftyTqMonHiPassFil1Spd		SftyTqMonMeclSpdPrevCyc
+SftyTqMonHiPassFil1Tq		SftyTqMonTqOscnDif
+SftyTqMonHiPassFil2Spd		SftyTqMonTqOscnDifPrevCyc
+SftyTqMonHiPassFil2Tq		SftyTqMonTqOscnErrMonrSt
+SftyTqMonMeclSpdPrevCyc		SftyTqMonTqOscnFilEgy
+SftyTqMonTqAct		
+SftyTqMonTqOscnDif		
+SftyTqMonTqOscnDifPrevCyc		
+SftyTqMonTqOscnFilEgy		
+SftyTqMonTqOscnFilEgyChkThd		
+SftyTqMonTqOscnHiPassFil1Con		
+SftyTqMonTqOscnHiPassFil2Con		
+SftyTqMonTqOscnLoPassFilCon		
+SftyTqMonTqReq		
+SftyTqMon_ChkTqReq
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+3	22	38	0	4.571	0	1	0	1	7	0	28
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyE2ePhySigDataMotor56MO_EMX_SollMoment		SftyTqMonTqReq
+SftyE2eSigDataMotor56		SftyTqMonTqReqErrMonrSt
+SftyTqEstimrPwrMdlIgbtModAct		SftyTqMonTqReqTqAccrSum
+SftyTqMonCurMdlQmTqPlausErrMonrSt		SftyTqMonTqReqTqBrkSum
+SftyTqMonTqAct		
+SftyTqMonTqReq		
+SftyTqMonTqReqEnaMinTqNegThd		
+SftyTqMonTqReqEnaMinTqPosThd		
+SftyTqMonTqReqMaxAccrThd		
+SftyTqMonTqReqMaxActDampAccrTq		
+SftyTqMonTqReqMaxActDampBrkTq		
+SftyTqMonTqReqMaxBrkThd		
+SftyTqMonTqReqTqAccrSum		
+SftyTqMonTqReqTqBrkSum		
+SftyTqMon_ChkTqRng
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+2	7	11	0	3.621	0	1	0	1	3	0	3
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqEstimrPwrMdlIgbtModAct		SftyTqMonTqRngErrMonrSt
+SftyTqMonCalcdTqRngHiThd		SftyTqMonTqRngMax
+SftyTqMonCalcdTqRngLoThd		SftyTqMonTqRngMin
+SftyTqMonCurMdlQmTqPlausErrMonrSt		
+SftyTqMonTqAct		
+SftyTqMonTqRngMax		
+SftyTqMonTqRngMin		
+SftyTqMonTqRngThdOffs		
+SftyTqMon_CurMdlPwrMdlPlaus
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+3	7	10	0	3.583	1	1	0	1	4	1	4
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyRslvrCalcnMeclSpdFildAbs	MLIB_F32AbsF32	SftyTqMonCurMdlPwrMdlPlausErrMonrSt
+SftyTqEstimrCurMdlVldyFlg		SftyTqMonCurMdlPwrMdlTqDif
+SftyTqEstimrPwrMdlVldyFlg		
+SftyTqMonCurMdlPwrMdlChkSpdThd		
+SftyTqMonCurMdlPwrMdlPlausThd		
+SftyTqMonCurMdlPwrMdlTqDif		
+SftyTqMonCurMdlTqEstimd		
+SftyTqMonPwrMdlTqEstimd		
+SftyTqMon_CurMdlQmTqPlaus
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+2	7	12	0	2.480	1	1	0	1	3	1	3
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+DrvCtrlC2cData	MLIB_F32AbsF32	SftyTqMonCurMdlQmTqDif
+SftyTqEstimrCurMdlVldyFlg		SftyTqMonCurMdlQmTqPlausErrMonrSt
+SftyTqMonCurMdlPwrMdlPlausErrMonrSt		SftyTqMonQmTqAct
+SftyTqMonCurMdlQmTqDif		
+SftyTqMonCurMdlQmTqPlausThd		
+SftyTqMonCurMdlTqEstimd		
+SftyTqMonQmTqAct		
+SftyTqMon_GetCurMdlTqEstimd
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+1	4	5	0	3.533	0	1	0	1	2	0	2
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyReplcmtCurMdlEstimdTqStiEna		SftyTqMonCurMdlTqEstimd
+SftyReplcmtCurMdlEstimdTqVal		
+SftyTqEstimrCurMdlFildTq		
+SftyTqMon_GetPwrMdlTqEstimd
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+1	4	5	0	2.214	0	1	0	1	2	0	2
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyReplcmtPwrMdlEstimdTqStiEna		SftyTqMonPwrMdlTqEstimd
+SftyReplcmtPwrMdlEstimdTqVal		
+SftyTqEstimrPwrMdlFildTq		
+SftyTqMon_GetQmTqAct
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+2	7	9	0	4.130	1	1	0	1	3	1	3
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyReplcmtTqMonTqActStiEna	SftyUtils_LowPassFil	SftyTqMonTqAct
+SftyReplcmtTqMonTqActVal		SftyTqMonTqActFild
+SftyTqMonCurMdlQmTqPlausErrMonrSt		SftyTqMonTqActFildFirstRun
+SftyTqMonQmTqAct		
+SftyTqMonTqAct		
+SftyTqMonTqActFilCon		
+SftyTqMonTqActFild		
+SftyTqMonTqActFildFirstRun		
+SftyTqMon_GetTqMax
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+1	6	8	0	2.941	0	1	0	1	3	0	4
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyE2ePhySigDataMotor56MO_EMX_Max_Moment		
+SftyReplcmtTqMonCanMaxTqStiEna		
+SftyReplcmtTqMonCanMaxTqVal		
+SysPrmTqLimMotMecl		
+SftyTqMon_GetTqMin
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+1	6	8	0	2.941	0	1	0	1	3	0	4
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyE2ePhySigDataMotor56MO_EMX_Min_Moment		
+SftyReplcmtTqMonCanMinTqStiEna		
+SftyReplcmtTqMonCanMinTqVal		
+SysPrmTqLimGenMecl		
+SftyTqMon_Init
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	26	27	1	2.066	1	1	0	0	1	1	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+MLIB_U32BitRotLeftU32	SftyTqMonCurMdlPwrMdlPlausErrMonrSt
+SftyTqMonCurMdlPwrMdlTqDif
+SftyTqMonCurMdlQmTqDif
+SftyTqMonCurMdlQmTqPlausErrMonrSt
+SftyTqMonHiPassFil1Spd
+SftyTqMonHiPassFil1Tq
+SftyTqMonHiPassFil2Spd
+SftyTqMonHiPassFil2Tq
+SftyTqMonMeclSpdPrevCyc
+SftyTqMonQmTqAct
+SftyTqMonTqAct
+SftyTqMonTqActFild
+SftyTqMonTqActFildFirstRun
+SftyTqMonTqEspErrMonrSt
+SftyTqMonTqEspTqAccrSum
+SftyTqMonTqEspTqBrkSum
+SftyTqMonTqOscnDifPrevCyc
+SftyTqMonTqOscnErrMonrSt
+SftyTqMonTqOscnFilEgy
+SftyTqMonTqReqErrMonrSt
+SftyTqMonTqReqTqAccrSum
+SftyTqMonTqReqTqBrkSum
+SftyTqMonTqRngErrMonrSt
+SftyTqMonTqRngMax
+SftyTqMonTqRngMin
+SftyTqMon_Init_ErrDeb
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	26	26	0	2.018	0	1	0	0	1	0	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqMonCurMdlPwrMdlPlausErrMonrSt
+SftyTqMonCurMdlPwrMdlTqDif
+SftyTqMonCurMdlQmTqDif
+SftyTqMonCurMdlQmTqPlausErrMonrSt
+SftyTqMonHiPassFil1Spd
+SftyTqMonHiPassFil1Tq
+SftyTqMonHiPassFil2Spd
+SftyTqMonHiPassFil2Tq
+SftyTqMonMeclSpdPrevCyc
+SftyTqMonQmTqAct
+SftyTqMonTqAct
+SftyTqMonTqActFild
+SftyTqMonTqActFildFirstRun
+SftyTqMonTqEspErrMonrSt
+SftyTqMonTqEspTqAccrSum
+SftyTqMonTqEspTqBrkSum
+SftyTqMonTqOscnDifPrevCyc
+SftyTqMonTqOscnErrMonrSt
+SftyTqMonTqOscnFilEgy
+SftyTqMonTqReqErrMonrSt
+SftyTqMonTqReqTqAccrSum
+SftyTqMonTqReqTqBrkSum
+SftyTqMonTqRngErrMonrSt
+unreachable
+SftyTqMonTqRngMax
+SftyTqMonTqRngMin
+SftyTqMon_MainFunction
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	19	20	1	4.150	12	1	0	0	1	12	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqMonCurMdlTqEstimd	MLIB_U32BitRotLeftU32	SftyC2cData
+SftyTqMon_CalcTqRngThd	SftyTqMonCurMdlPwrMdlPlausErrMonrSt
+SftyTqMon_ChkTqEsp	SftyTqMonCurMdlQmTqPlausErrMonrSt
+SftyTqMon_ChkTqOscn	SftyTqMonTqEspErrMonrSt
+SftyTqMon_ChkTqReq	SftyTqMonTqOscnErrMonrSt
+SftyTqMon_ChkTqRng	SftyTqMonTqReqErrMonrSt
+SftyTqMon_CurMdlPwrMdlPlaus	SftyTqMonTqRngErrMonrSt
+SftyTqMon_CurMdlQmTqPlaus	
+SftyTqMon_GetCurMdlTqEstimd	
+SftyTqMon_GetPwrMdlTqEstimd	
+SftyTqMon_GetQmTqAct	
+SftyTqMon_SendTqLimToDrco	
+SftyTqMon_SendTqLimToDrco
+Function HIS Metrics
+STMIF	STST3	STXLN	STPAR	STVOC2	STCAL	STM19	STGTO	STM29	STCYC	STSUB	STPTH
+0	3	3	0	1.611	0	1	0	1	1	0	1
+Function Plot
+Function Interface
+Inputs	Calls	Outputs
+SftyTqMonCalcdTqRngHiThd		SftyC2cData
+SftyTqMonCalcdTqRngLoThd		
+SftyTqMonTqLimOffsQm		
+ 
