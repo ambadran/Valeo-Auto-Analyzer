@@ -1604,7 +1604,7 @@ class SecondBlock(BlockTemplate):
 					print(f"{self.search_key} Report {self.sole_files[ind]} doesn't have 'Report coverage' in it!!!!!!!!!!")
 				else:
 					print(f"{self.search_key} Report doesn't have 'Report coverage' in it!!!!!!!!!!")
-		
+				return None
 
 		partitioned = [raw.split("**")[1:] for raw in report_coverage_part]  # breaking up the text in each html into values in a list [name, block, name, block, etc..]
 		
