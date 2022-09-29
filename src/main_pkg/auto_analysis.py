@@ -1573,12 +1573,13 @@ class SecondBlock(BlockTemplate):
 		"""
 		returns summary % of all code coverage (summary of summary)
 		"""
-		total = [0, 0]
-		for score in self.code_coverage['Summary'].items():
-			total[0] += score[1][0]
-			total[1] += score[1][1]
+		if self.code_coverage:
+			total = [0, 0]
+			for score in self.code_coverage['Summary'].items():
+				total[0] += score[1][0]
+				total[1] += score[1][1]
 
-		return total[0]/total[1]
+			return total[0]/total[1]
 
 	def get_entries(self):
 		"""
@@ -1860,14 +1861,17 @@ class SecondBlock(BlockTemplate):
 
 		SN = 1
 		output.append(["SN", "SW function that not fully covered in unit test coverage report",	"Comment", "Action"])
-		if self.report_found and self.stat != 1.0:
-			for func in self.not_covered_funcs.keys():
-				comment = ""
-				for attrib in self.not_covered_funcs[func].keys():
-					comment += f"{attrib}: {self.not_covered_funcs[func][attrib]}, "
-				output.append([SN, func, comment, ""])
-				SN += 1
-		else:
+		try:
+			if self.code_coverage and self.stat != 1.0:
+				for func in self.not_covered_funcs.keys():
+					comment = ""
+					for attrib in self.not_covered_funcs[func].keys():
+						comment += f"{attrib}: {self.not_covered_funcs[func][attrib]}, "
+					output.append([SN, func, comment, ""])
+					SN += 1
+			else:
+				output.append(['1-', 'No Output'])
+		except AttributeError:
 			output.append(['1-', 'No Output'])
 
 		return output
@@ -2438,7 +2442,8 @@ class ForthBlock(BlockTemplate):
 
 		return result, path
 
-	def filter_backslash(self, path):
+	@staticmethod
+	def filter_backslash(path):
 		"""
 		Main use is to let python read paths to a file
 		input path as string with backslashes 
