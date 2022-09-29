@@ -1,0 +1,9 @@
+[	[r"C:/Users/abadran/Dev_analysis/Beifang/script/input_files/code/VW_MEB_Software/src/fw_cu/Components", 
+	r"C:/Users/abadran/Dev_analysis/Beifang/script/input_files/code/VW_MEB_Software/src/fw_cu/workspace", 
+	r"C:/Users/abadran/Dev_analysis/Beifang/script/input_files/code/VW_MEB_Software/src/fw_actvdcha/Components"],
+	
+	'C:/tcc',  # this should be path to code but I only changed it because it's working on my computer
+	
+	'C:/tcc',
+
+	"https://vseapolarion.vnet.valeo.com/polarion/#/project/VW_MEB_Inverter/mypolarion"]

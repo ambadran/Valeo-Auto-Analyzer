@@ -1,8 +1,4 @@
-# unwanted files
-long_term_memory.txt
-input_files/
-internals/
-output/
+
 
 # json files
 token.json
