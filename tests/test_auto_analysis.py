@@ -26,13 +26,16 @@ from main_pkg.auto_analysis import read_assign_all_CSVs, create_blocks
 
 # Exports
 from main_pkg.auto_analysis import export_csv, GoogleSheet
+
+import os
 ########################################################################################################################################
 
 
 ########################################################################################################################################
 # Important Decorators
-PATH_TO_LONG_TERM_TEST_MEMORY = 'tests/long_term_memory.txt'
+PATH_TO_LONG_TERM_TEST_MEMORY = 'long_term_memory.txt'
 
+os.chdir('tests/')
 ########################################################################################################################################
 
 
@@ -86,7 +89,7 @@ def change_component_name(component_name, ID, comp_variants, working_variant, br
 	dumy_third_block = ThirdBlock(dumy_first_block)
 	global dumy_forth_block
 	dumy_forth_block = ForthBlock(dumy_first_block)
-	global dumy_fifth_blocks
+	global dumy_fifth_block
 	dumy_fifth_block = FifthBlock(dumy_first_block,dumy_forth_block)
 
 
@@ -253,7 +256,7 @@ def test_analysis_table():
 def test_get_code_coverage_stat(test_input,expected):
 	
 	dumy_second_block.code_coverage = {'Summary': test_input}
-	assert dumy_second_block.get_code_coverage_stat() == expected
+	assert dumy_second_block.get_stat() == expected
 
 
 	
@@ -263,28 +266,28 @@ def test_get_code_coverage_stat(test_input,expected):
 	
 	# input1
 	(
-	[html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/Idp.html"))],
+	[html2text(read_file("test_snippets/test_get_entries_RTRT/test_input/Idp.html"))],
 	
 	#expected1
-	eval(read_file("tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test1.txt"))
+	eval(read_file("test_snippets/test_get_entries_RTRT/expected/dictionary_test1.txt"))
 	),
 	
 	#input2
 	(
-	[html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/Exc.html"))],
+	[html2text(read_file("test_snippets/test_get_entries_RTRT/test_input/Exc.html"))],
 	
 	#expected2
-	eval(read_file("tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test2.txt"))
+	eval(read_file("test_snippets/test_get_entries_RTRT/expected/dictionary_test2.txt"))
 	),
 
 	#A component with more one report :
 	(
 	#input3
-	[html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/SftyTqMon.html")),
-	 html2text(read_file("tests/test_snippets/test_get_entries_RTRT/test_input/SftyTqMon_1.html"))],
+	[html2text(read_file("test_snippets/test_get_entries_RTRT/test_input/SftyTqMon.html")),
+	 html2text(read_file("test_snippets/test_get_entries_RTRT/test_input/SftyTqMon_1.html"))],
 	  
 	#expected3
-	eval(read_file("tests/test_snippets/test_get_entries_RTRT/expected/dictionary_test3.txt"))  
+	eval(read_file("test_snippets/test_get_entries_RTRT/expected/dictionary_test3.txt"))  
 	  
 	  
 	),
@@ -365,19 +368,19 @@ def test_search_for_report_QAC(test_input,expected,variant,branch):
 
 @pytest.mark.parametrize("test_input, expected" , [
 
-(True , True),
-(False , False),
+(['blah blah unreachable blah blah'] , True),
+(['blah blah blah'] , False),
 ])
 def test_get_dead_code_stat(test_input,expected):
-	dumy_third_block.dead_code = test_input
-	assert dumy_third_block.get_dead_code_stat() == expected
+	dumy_third_block.report = test_input
+	assert dumy_third_block.get_stat() == expected
 
 @pytest.mark.parametrize("test_input, expected",[
 
-([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\BswErrDeb.c.html'))] , False),
-([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\Idp.c.html'))]       , False),
-([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\SftyTqMon.c.html'))] , False),
-([html2text(read_file('tests\\test_snippets\\test_get_entries_QAC\\test_input\\Test_input_4.txt'))] , True),
+([html2text(read_file('test_snippets\\test_get_entries_QAC\\test_input\\BswErrDeb.c.html'))] , False),
+([html2text(read_file('test_snippets\\test_get_entries_QAC\\test_input\\Idp.c.html'))]       , False),
+([html2text(read_file('test_snippets\\test_get_entries_QAC\\test_input\\SftyTqMon.c.html'))] , False),
+([html2text(read_file('test_snippets\\test_get_entries_QAC\\test_input\\Test_input_4.txt'))] , True),
 
 ])
 def test_get_entries_QAC(test_input,expected):
@@ -448,8 +451,8 @@ def test_KILL_ALL_COMMENTS(test_input, expected):
 
 @pytest.mark.parametrize("test_input, expected",[
 
-	(read_file(r'tests\test_snippets\test_KILL_ALL_CODE_SWITCHES\test_cases\test_case1.txt'), 	read_file(r'tests/test_snippets/test_KILL_ALL_CODE_SWITCHES/expected/expected1.txt')),
-	#(read_file(r'tests\test_snippets\test_KILL_ALL_CODE_SWITCHES\test_cases\test_case2.txt'), 	read_file(r'tests/test_snippets/test_KILL_ALL_CODE_SWITCHES/expected/expected2.txt')),
+	(read_file(r'test_snippets\test_KILL_ALL_CODE_SWITCHES\test_cases\test_case1.txt'), 	read_file(r'test_snippets/test_KILL_ALL_CODE_SWITCHES/expected/expected1.txt')),
+	#(read_file(r'test_snippets\test_KILL_ALL_CODE_SWITCHES\test_cases\test_case2.txt'), 	read_file(r'test_snippets/test_KILL_ALL_CODE_SWITCHES/expected/expected2.txt')),
 	
 ])
 def test_KILL_ALL_CODE_SWITCHES(test_input,expected):
@@ -485,37 +488,37 @@ def test_get_all_funcs():
 ################################################Methods of fifth block#############################################################
 
 @pytest.mark.parametrize("component_name,variant,branch,expected1,code_comment_input_list,expected2",[
-("Idp","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_1.txt")),True),
-# ("Obd","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_2.txt")),False),
-# ("emm","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_3.txt")),False),
-# ("ecum_callouts","base+","P330",True,eval(read_file("tests\\test_snippets\\test_get_code_comments_stat\\expected_4.txt")),False),
+("Idp","base+","P330",True,eval(read_file("test_snippets\\test_get_code_comments_stat\\expected_1.txt")),True),
+# ("Obd","base+","P330",True,eval(read_file("test_snippets\\test_get_code_comments_stat\\expected_2.txt")),False),
+# ("emm","base+","P330",True,eval(read_file("test_snippets\\test_get_code_comments_stat\\expected_3.txt")),False),
+# ("ecum_callouts","base+","P330",True,eval(read_file("test_snippets\\test_get_code_comments_stat\\expected_4.txt")),False),
 
 ])
 def test_get_code_comments_stat(component_name,variant,branch,expected1,code_comment_input_list,expected2):
-	change_component_name(component_name,variant,branch)
+	change_component_name(component_name,'ID', ['base+', 'base-'], variant, branch)
 	#dumy_fifth_block.code_file = dumy_forth_block.code_file_both
-	#assert dumy_fifth_block.get_code_comments_stat() == expected1
+	#assert dumy_fifth_block.get_stat() == expected1
 	
 	
 	
 	dumy_fifth_block.code_comments = code_comment_input_list
-	#assert dumy_fifth_block.get_code_comments_stat() == expected2
-	#assert dumy_fifth_block.get_code_comments_stat() == eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_2.txt"))
-	#assert dumy_fifth_block.get_code_comments_stat() == eval(read_file("C:\\Dev\\auto_analysis\\Valeo-Auto-Analyzer\\tests\\test_snippets\\test_get_code_comments_stat\\expected_3.txt"))
+	#assert dumy_fifth_block.get_stat() == expected2
+	#assert dumy_fifth_block.get_stat() == eval(read_file("test_snippets\\test_get_code_comments_stat\\expected_2.txt"))
+	#assert dumy_fifth_block.get_stat() == eval(read_file("test_snippets\\test_get_code_comments_stat\\expected_3.txt"))
 	pass
 
 @pytest.mark.parametrize("component_name,variant,branch,input,",[
 
-("Idp","base+","P330",eval(read_file('tests\\test_snippets\\test_get_code_comments_all\\expected_1.txt'))),
-("Obd","base+","P330",eval(read_file('tests\\test_snippets\\test_get_code_comments_all\\expected_2.txt'))),
-("emm","base+","P330",eval(read_file('tests\\test_snippets\\test_get_code_comments_all\\expected_3.txt'))),
+("Idp","base+","P330",eval(read_file('test_snippets\\test_get_code_comments_all\\expected_1.txt'))),
+# ("Obd","base+","P330",eval(read_file('test_snippets\\test_get_code_comments_all\\expected_2.txt'))),
+# ("emm","base+","P330",eval(read_file('test_snippets\\test_get_code_comments_all\\expected_3.txt'))),
 
 
 ])
 def test_get_code_comments_all(component_name,variant,branch,input):
-	change_component_name(component_name,variant,branch)
+	change_component_name(component_name,'ID', ['base+', 'base-'], variant, branch)
 	
-	#dumy_fifth_block.code_file = read_file('tests\\test_snippets\\test_get_code_comments_all\\code_1.c')
+	#dumy_fifth_block.code_file = read_file('test_snippets\\test_get_code_comments_all\\code_1.c')
 	dumy_fifth_block.code_comments = input
 	assert dumy_fifth_block.get_code_comments_all() == input
 	
