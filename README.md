@@ -32,6 +32,7 @@ For every workitem, these attributes must be selected when exporting the CSV fil
 	- "Severity"
 	- "Status"
 	- "Space / Document"
+	- "Description"
 
 After running the auto_analyzer the first time, the program will ask the user to put the CSV files in their correct place which 
 intuitively is in the created folder: 'input_files/polarian_csv_outputs'. 

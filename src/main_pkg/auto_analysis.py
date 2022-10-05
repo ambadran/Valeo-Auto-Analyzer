@@ -812,6 +812,8 @@ class DetailedDesign(WorkItem):
 						   'requirements': 'Requirement',
 						   'diagnostics': 'Diagnostic',
 						   'interfaces': 'Interface'}
+
+	special_names = [r'ISR.*', r'TASK.*']
 	##################################################
 
 	def __init__(self, ID: str = None, title: int = None, variant: list = [], status: str = None, component: str = None, requirements: list = [], 
@@ -826,7 +828,8 @@ class DetailedDesign(WorkItem):
 
 		### Extra things special to Component class objects only
 		# title adjustments; remove () if it's there
-		if '(' in self.title:
+
+		if '(' in self.title and True not in [not not re.findall(value, self.title) for value in DetailedDesign.special_names]:
 			self.title = self.title[:self.title.find('(')]
 
 	@classmethod
@@ -1424,6 +1427,13 @@ class BlockTemplate(ABC):
 
 		return all_rows
 
+	def __str__(self):
+		'''
+		General str method for any BlockTemplate class
+		'''
+		return str(self.__dict__)
+
+
 class FirstBlock(BlockTemplate):
 	"""
 	1. Category of SW module for detailed software analysis.	
@@ -2013,12 +2023,6 @@ class ForthBlock(BlockTemplate):
 			self.code_switches_all = self.get_code_switches_all()
 			self.func_defs = self.get_all_funcs(self.code_file, self.code_switches_all)
 			print(f"Detected {len(self.func_defs)} functions implemented in code")
-			
-			# for debugging func_defs
-			if DEBUG_FUNC_DEFS:
-				print(len(self.func_defs))
-				for func in self.func_defs:
-					print(func)
 
 			self.code_switches = self.get_code_switches(self.code_switches_all)
 
@@ -2855,6 +2859,30 @@ class ForthBlock(BlockTemplate):
 		########################################################################################
 
 
+		########################################################################################
+		### Special cases
+
+		# for ISR, TASK functions, the name include the parameters
+		if without_code_switch_test:
+			for func_def in func_defs:
+				if True in [not not re.findall(value, func_def.name) for value in DetailedDesign.special_names]:
+					extension = ''
+					for param in func_def.params:
+						for value in param:
+							extension += value
+							extension += ' '
+						extension += ','
+
+					func_def.name += '(' + str(extension.strip(' ,')) + ')'
+					print(func_def.name, 'lkj')
+		########################################################################################
+
+
+		# for debugging func_defs
+		if DEBUG_FUNC_DEFS and without_code_switch_test:
+			for func in func_defs:
+				print(func)
+
 		return func_defs
 
 	def merges(self, *args, **kwargs):
@@ -2989,7 +3017,7 @@ class FifthBlock(BlockTemplate):
 					start_line = code_comments_raw[ind].start_line_num
 				else:
 					code_comments.append(code_comments_raw[ind])
-		#134 98
+
 		# detect // \n comments ;)
 		code = deepcopy(self.code_file)
 		for ind, char in enumerate(code):
@@ -3147,7 +3175,6 @@ class FifthBlock(BlockTemplate):
 		no merges for code comment analysis, no repeated data
 		'''
 		return []
-
 	def get_checklist_table(self) -> List[List[str]]:
 		'''
 		Checklist table
@@ -3325,6 +3352,10 @@ class SixthBlock(BlockTemplate):
 
 	def merges(self, starting_row_num, sheet_id):
 		'''
+		:param starting_row_num: the row number this table starts from in the Google sheet
+		:param sheet_id: SheetID of the sheet the table will be put in. inside SheetProperties Json data of Sheet Json data
+
+
 		For DD analysis table need to merge SN, DD ID and DD name columns
 		as they do sometimes get repeated becaues one DD might have more 
 		than one requirement or diagnostic
@@ -3332,7 +3363,15 @@ class SixthBlock(BlockTemplate):
 		:return: list of merge data (gridRange Json data) that will be put in .extend in the all_merges list 
 		when creating it in GoogleSheet.get_all_analysis_sheet_merges()
 		'''
+
+		# cell vertical merges like all consecutive cells with same ID get merged
 		merge_data = GoogleSheet.get_merges_list(self.str_analysis_table, [0, 1, 2], starting_row_num, sheet_id)
+
+		# title cell horizontal merges for subtitles
+		for row_num in self.table_start_row_inds:
+			title_row = starting_row_num + row_num
+			merge_data.append(GoogleSheet.get_merge_data(sheet_id, title_row-1, title_row, 0, len(self.str_analysis_table[0])))
+
 
 		return merge_data
 
@@ -4127,6 +4166,7 @@ class GoogleSheet:
 		### create the rest of body rows except last row
 		list_of_body_rows = []
 		# creating list of list of cell celldata
+		title_row_detected = False
 		for row in rows_of_tables[1:-1]:
 
 			# figuring out the current column ID list indexes
@@ -4134,19 +4174,30 @@ class GoogleSheet:
 				current_key_col_index += 1
 				current_col_list = ID_col_indexes[table_start_row_inds[current_key_col_index]]
 
+				# the second title row which for example has 'No, ID, name, etc..'
+				title_row_detected = True
+
+			if current_row == table_end_row_inds[current_key_col_index]-1:
+				# for first title row, for example the row that says 'DDs that doesn't have function'
+				title_row_detected = True
+
 			# creating a new list of cellData
 			list_of_body_rows.append([])
-
-			# first cell in the row
-			list_of_body_rows[-1].append(self.create_cell(row[0], border=['l'], attach_polarian_hyperlink = True if 0 in current_col_list else False))  # first cell has left border
 			
+			# first cell in the row
+			list_of_body_rows[-1].append(self.create_cell(row[0], border=['l', 'r', 'b', 't'] if title_row_detected else ['l'], attach_polarian_hyperlink = True if (0 in current_col_list) and not title_row_detected else False, bold=title_row_detected))
+
 			# all body cells
 			for ind_in, value in enumerate(row[1:-1]):
-				list_of_body_rows[-1].append(self.create_cell(value, attach_polarian_hyperlink = True if ((ind_in+1) in current_col_list) else False))
+				list_of_body_rows[-1].append(self.create_cell(value, border=['l', 'r', 'b', 't'] if title_row_detected else [], attach_polarian_hyperlink = True if ((ind_in+1) in current_col_list) and not title_row_detected else False, bold=title_row_detected))
 
 			# last cell in the row
-			list_of_body_rows[-1].append(self.create_cell(row[-1], border=['r'], attach_polarian_hyperlink = True if ind_in+2 in current_col_list else False))
+			list_of_body_rows[-1].append(self.create_cell(row[-1], border=['l', 'r', 'b', 't'] if title_row_detected else ['r'], attach_polarian_hyperlink = True if (ind_in+2 in current_col_list) and not title_row_detected else False, bold=title_row_detected))
 		
+			# inverting the title flag if it's True
+			if title_row_detected:
+				title_row_detected = False
+
 			current_row += 1
 
 		### create last row
@@ -4345,6 +4396,11 @@ class GoogleSheet:
 	@staticmethod
 	def get_merges_list(rows: List[List[str]], col_num_to_be_merged: List[int], starting_row_num: int, sheet_id: int) -> List[Dict]:
 		'''
+		:param rows: should be BlockTemplate.str_analysis_table. It's the actual values of the cells. Output of blocks classes
+		:param starting_row_num: the row number this table starts from in the Google sheet
+		:param sheet_id: SheetID of the sheet the table will be put in. inside SheetProperties Json data of Sheet Json data
+		:param col_num_to_be_merged: list of column numbers to be merged. for example [0, 1], so only merge first and second column of this table
+
 		creates the list of GridRange json data input for vertical merges, 
 		meant to be input of "merges" in Sheets Json data
 		e.g of result when col_num_to_be_merged = [0, 1, 2] in the google sheet
@@ -4359,7 +4415,7 @@ class GoogleSheet:
 		:param col_num_to_be_merged: list of the index of the columns that has data that could be merged
 		:param starting_row_num: the merge data is absolute, we need to know where does the table start
 									ASSUME: all tables starts from first column
-		:return: list of GridRange Json Data (meant to be input of "merges": in sheet Json data)
+		:return: list of GridRange Json Data (meant to be input of key="merges": in sheet Json data)
 		'''
 		merges = []
 
@@ -4385,7 +4441,7 @@ class GoogleSheet:
 						start_ind = end_ind  # for next time
 						
 					else:
-						# more than one row with same value
+						# data changed. must merge until here
 						# getting the merge
 						merges.append(GoogleSheet.get_merge_data(sheet_id, start_ind, end_ind, col_ind, col_ind+1))
 
@@ -4653,13 +4709,13 @@ if __name__ == '__main__':
 	### Constants (for debugging)
 	homedir = 'C:/Users/abadran/Dev_analysis/Beifang/script'
 	DISABLE_REPORT_SEARCH = True
-	DOCUMENT_CHOOSEN_NUMBER = 0  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
+	DOCUMENT_CHOOSEN_NUMBER = 1  # REMEMBER TO PUT NONE and remember to include -1. for components that has multiple valid document and we must choose one
 	MANUAL_CAT3_MODE_INPUT = None
 	DEBUG_FUNC_DEFS = False
 
 
 	### Inputs
-	component_name = "idp"
+	component_name = "Obd"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
