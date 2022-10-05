@@ -2916,6 +2916,10 @@ class ForthBlock(BlockTemplate):
 				comment = f"Start line num: {code_switch.line_num}, End line num: {code_switch.end_line_num}"
 				enabled_disabled_state = '-' if code_switch.is_enabled == None else 'Enabled' if code_switch.is_enabled else 'Disabled'
 				output.append([sn+1, code_switch.function, code_switch.title, enabled_disabled_state, comment, ''])
+		else:
+			output.append(['1-', 'No Code Switches Found'])
+
+
 		return output
 
 
@@ -3194,6 +3198,7 @@ class FifthBlock(BlockTemplate):
 		self.table_start_row_inds = [0]
 
 		output.append(["SN", "SW function with code comment.", "Code comment", "Code comment type", "Comment", "Action"])
+		
 		if self.code_comments:
 			for sn, code_comment in enumerate(self.code_comments):
 				if code_comment.func_type: #TODO: this line doesn't work anymore!!!!
@@ -3204,6 +3209,10 @@ class FifthBlock(BlockTemplate):
 				else:
 					comment = f"Starts at line:{code_comment.start_line_num} and ends at line: {code_comment.end_line_num}"
 					output.append([sn+1, code_comment.function, code_comment.comment, code_comment.type_, comment, ""])
+		
+		else:
+			output.append(['1-', 'No code comments found'])
+
 		return output
 
 
@@ -3372,7 +3381,6 @@ class SixthBlock(BlockTemplate):
 			title_row = starting_row_num + row_num
 			merge_data.append(GoogleSheet.get_merge_data(sheet_id, title_row-1, title_row, 0, len(self.str_analysis_table[0])))
 
-
 		return merge_data
 
 	def get_checklist_table(self):
@@ -3417,9 +3425,9 @@ class SixthBlock(BlockTemplate):
 				counter += 1
 		
 		else:  # what happens if no dd found at all for the whole component?!?
-			output.append(["This component has no detailed_designs"])  
+			output.append(['1-', "This component has no detailed_designs"])  
 
-
+		print(len(output), 'len of output')
 		#### EXTRA TABLES ####
 		# DDS that doesn't have a component attached to
 		if self.dd_no_comp_matches:
@@ -3524,29 +3532,30 @@ class SeventhBlock(BlockTemplate):
 		code_reviews = []
 		repeated_functions = []
 		
-		for func in self.func_defs:
-			found_flag = False
-			for dd in self.component.detailed_designs:
-				if func.name.lower() == dd.title.lower():
-					# found same name, CAPTURE IT!
-					captured_dd = dd
-					found_flag = True
+		if self.func_defs:
+			for func in self.func_defs:
+				found_flag = False
+				for dd in self.component.detailed_designs:
+					if func.name.lower() == dd.title.lower():
+						# found same name, CAPTURE IT!
+						captured_dd = dd
+						found_flag = True
 
-					# checking for any similar variant between the variants in dd and func
-					if not not set(captured_dd.variant).intersection(set(func.variant)):
-						# dd has same name and variant as func -> best match
-						code_reviews.append(CodeReview(func, captured_dd, does_variant_match_dd=True))
-						break  # found_flag logic will not run
-					
-			else:
-				if found_flag:
-					code_reviews.append(CodeReview(func, captured_dd, does_variant_match_dd=False))
+						# checking for any similar variant between the variants in dd and func
+						if not not set(captured_dd.variant).intersection(set(func.variant)):
+							# dd has same name and variant as func -> best match
+							code_reviews.append(CodeReview(func, captured_dd, does_variant_match_dd=True))
+							break  # found_flag logic will not run
+						
 				else:
-					code_reviews.append(CodeReview(func, None))
+					if found_flag:
+						code_reviews.append(CodeReview(func, captured_dd, does_variant_match_dd=False))
+					else:
+						code_reviews.append(CodeReview(func, None))
 
-			if [i.func.name for i in code_reviews].count(func.name) > 1:
-				print(f"Found Repeated function with name: {func.name}")
-				repeated_functions.append(func)
+				if [i.func.name for i in code_reviews].count(func.name) > 1:
+					print(f"Found Repeated function with name: {func.name}")
+					repeated_functions.append(func)
 
 		self.repeated_functions = repeated_functions
 
@@ -3595,6 +3604,12 @@ class SeventhBlock(BlockTemplate):
 
 		all_merge_data.extend(new_merge_data_list)
 
+		# title cell horizontal merges for subtitles
+		for row_num in self.table_start_row_inds:
+			title_row = starting_row_num + row_num
+			all_merge_data.append(GoogleSheet.get_merge_data(sheet_id, title_row-1, title_row, 0, len(self.str_analysis_table[0])))
+
+
 		return all_merge_data
 
 	def get_checklist_table(self):
@@ -3611,61 +3626,65 @@ class SeventhBlock(BlockTemplate):
 		self.table_start_row_inds = [0]
 
 		counter = 1
-		for code_review in self.code_reviews:
+		if self.code_reviews:
+			for code_review in self.code_reviews:
 
-			### state ###
-			state = ''
-			# check if no dd
-			if code_review.dd == None:
-				state = 'No'
+				### state ###
+				state = ''
+				# check if no dd
+				if code_review.dd == None:
+					state = 'No'
 
-			### issues ###
-			issues = ''
-			# check if no dd
-			if code_review.dd == None:
-				issues += "Function has no DD.\n"
-			else:
-				# check if func variant matches dd
-				if not code_review.does_variant_match_dd:
-					issues += f"This function is implemented under code switches of variant {code_review.func.variant} which is different from its DD which is {code_review.dd.variant}.\n"
+				### issues ###
+				issues = ''
+				# check if no dd
+				if code_review.dd == None:
+					issues += "Function has no DD.\n"
+				else:
+					# check if func variant matches dd
+					if not code_review.does_variant_match_dd:
+						issues += f"This function is implemented under code switches of variant {code_review.func.variant} which is different from its DD which is {code_review.dd.variant}.\n"
 
-				# check if dd has req/diag
-				if not code_review.dd.check_req_diag():
-					issues += "DD has no requirement OR Diagnostics.\n"
+					# check if dd has req/diag
+					if not code_review.dd.check_req_diag():
+						issues += "DD has no requirement OR Diagnostics.\n"
 
-			# check if func variant matches wanted
-			if not set(code_review.func.variant).intersection(set([self.first_block.variant.capitalize()])):
-				issues += f"This function is implemented under code switches of variant {code_review.func.variant} which is different from current component variant {self.first_block.variant.capitalize()}.\n"
+				# check if func variant matches wanted
+				if not set(code_review.func.variant).intersection(set([self.first_block.variant.capitalize()])):
+					issues += f"This function is implemented under code switches of variant {code_review.func.variant} which is different from current component variant {self.first_block.variant.capitalize()}.\n"
 
-			locality = 'Local' if code_review.func.is_local else 'Global'
-			# brief = code_review.func.func_comment.brief if code_review.func.func_comment else "Function has no brief in code"
+				locality = 'Local' if code_review.func.is_local else 'Global'
+				# brief = code_review.func.func_comment.brief if code_review.func.func_comment else "Function has no brief in code"
 
 
-			if code_review.dd:
+				if code_review.dd:
 
-				description = code_review.dd.description
-				desc_lines = description.split('\n')
-				description = ""
-				for line in desc_lines:
-					if '\t' in line or line == "":
-						continue
-					else:
-						description += line
+					description = code_review.dd.description
+					desc_lines = description.split('\n')
+					description = ""
+					for line in desc_lines:
+						if '\t' in line or line == "":
+							continue
+						else:
+							description += line
 
-				if code_review.dd.check_req_diag():  # function have dd, dd have req/diag
-					for req in code_review.dd.requirements:
-						output.append([counter, locality, code_review.func.name, description, req.title, req.ID, issues, "SW Requirement", req.description, state])
+					if code_review.dd.check_req_diag():  # function have dd, dd have req/diag
+						for req in code_review.dd.requirements:
+							output.append([counter, locality, code_review.func.name, description, req.title, req.ID, issues, "SW Requirement", req.description, state])
+						
+						for diag in code_review.dd.diagnostics:
+							output.append([counter, locality, code_review.func.name, description, diag.title, diag.ID, issues, "SW Diagnostic", diag.description, state])
 					
-					for diag in code_review.dd.diagnostics:
-						output.append([counter, locality, code_review.func.name, description, diag.title, diag.ID, issues, "SW Diagnostic", diag.description, state])
+					else:  # dd of function doesn't req/diag
+						output.append([counter, locality, code_review.func.name, description, "", "", issues, "", "", state])
 				
-				else:  # dd of function doesn't req/diag
-					output.append([counter, locality, code_review.func.name, description, "", "", issues, "", "", state])
-			
-			else:  # function doesn't have dd
-				output.append([counter, locality, code_review.func.name, "", "", "", issues, "", "", state])
+				else:  # function doesn't have dd
+					output.append([counter, locality, code_review.func.name, "", "", "", issues, "", "", state])
 
-			counter += 1
+				counter += 1
+		
+		else:
+			output.append(['1-', 'No Functions in this C code'])
 
 		# for repeated functions
 		if self.repeated_functions:
@@ -4027,6 +4046,10 @@ class GoogleSheet:
 		
 		:return: cellData json data (dictionary) (exactly like the shown up)
 		'''
+		# Avoid making hyperlink to empty cells when they are in an ID column
+		if value == '':
+			attach_polarian_hyperlink = False
+
 		alignments = {'l': 'LEFT', 'r': 'RIGHT', 'c': 'CENTER'}
 
 		cell = {
@@ -4715,7 +4738,7 @@ if __name__ == '__main__':
 
 
 	### Inputs
-	component_name = "Obd"
+	component_name = "obd"
 	CAT_num = 1
 	variant = 'Base+'
 	branch = 'P330'
