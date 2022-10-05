@@ -2874,7 +2874,6 @@ class ForthBlock(BlockTemplate):
 						extension += ','
 
 					func_def.name += '(' + str(extension.strip(' ,')) + ')'
-					print(func_def.name, 'lkj')
 		########################################################################################
 
 
@@ -3427,7 +3426,6 @@ class SixthBlock(BlockTemplate):
 		else:  # what happens if no dd found at all for the whole component?!?
 			output.append(['1-', "This component has no detailed_designs"])  
 
-		print(len(output), 'len of output')
 		#### EXTRA TABLES ####
 		# DDS that doesn't have a component attached to
 		if self.dd_no_comp_matches:
